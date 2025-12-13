@@ -18,6 +18,7 @@ from ..const import (
     DOMAIN,
     LAYOUT_GRID_2X2,
     LAYOUT_GRID_2X3,
+    LAYOUT_GRID_3X2,
     LAYOUT_HERO,
     LAYOUT_SLOT_COUNTS,
     LAYOUT_SPLIT,
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
 LAYOUT_OPTIONS = {
     LAYOUT_GRID_2X2: "Grid 2x2 (4 slots)",
     LAYOUT_GRID_2X3: "Grid 2x3 (6 slots)",
+    LAYOUT_GRID_3X2: "Grid 3x2 (6 slots)",
     LAYOUT_HERO: "Hero (4 slots)",
     LAYOUT_SPLIT: "Split (2 slots)",
     LAYOUT_THREE_COLUMN: "Three Column (3 slots)",
@@ -478,17 +480,17 @@ class GeekMagicSlotEntitySelect(GeekMagicSelectEntity):
         return " │ ".join(parts)
 
     def _extract_entity_id(self, option: str) -> str:
-        """Extract entity_id from formatted option string."""
-        if option == "(none)":
+        """Extract entity_id from option string."""
+        if option == "none":
             return ""
-        # Entity ID is always the first part before " │ "
-        return option.split(" │ ")[0]
+        return option
 
     @property
     def options(self) -> list[str]:
         """Return available entity options filtered by widget type.
 
-        Returns formatted options with name, value, and area.
+        Returns plain entity IDs to avoid exceeding the 16KB state attribute limit.
+        The current_option property shows the formatted display with extra info.
         """
         widget_type = self._get_widget_type()
 
@@ -514,21 +516,19 @@ class GeekMagicSlotEntitySelect(GeekMagicSelectEntity):
         # Sort by entity_id for consistency
         entity_ids = sorted(entity_ids)
 
-        # Format each option with additional info
-        formatted_options = [self._format_entity_option(eid) for eid in entity_ids]
-
-        # Add "None" option at the start to allow clearing
-        return ["(none)", *formatted_options]
+        # Return plain entity IDs (not formatted) to stay under 16KB attribute limit
+        # Add "none" option at the start to allow clearing
+        return ["none", *entity_ids]
 
     @property
     def current_option(self) -> str | None:
-        """Return the current entity_id formatted with details."""
+        """Return the current entity_id (plain, matching options list)."""
         widget = self._get_widget_config()
         if widget:
             entity_id = widget.get("entity_id", "")
             if entity_id:
-                return self._format_entity_option(entity_id)
-        return "(none)"
+                return entity_id
+        return "none"
 
     async def async_select_option(self, option: str) -> None:
         """Set the entity_id."""
