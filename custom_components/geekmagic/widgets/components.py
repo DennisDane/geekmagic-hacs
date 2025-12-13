@@ -484,7 +484,7 @@ class Adaptive(Component):
     """
 
     children: list[Component] = field(default_factory=list)
-    gap: int = 4
+    gap: int = 6  # Increased from 4 for better spacing
     padding: int = 0
 
     def measure(self, ctx: RenderContext, max_width: int, max_height: int) -> tuple[int, int]:

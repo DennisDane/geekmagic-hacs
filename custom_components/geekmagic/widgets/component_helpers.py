@@ -67,10 +67,10 @@ def BarGauge(
     )
 
     return Column(
-        gap=4,
+        gap=6,
         padding=padding,
         children=[
-            Adaptive(children=[c for c in header_children if c is not None], gap=4),
+            Adaptive(children=[c for c in header_children if c is not None], gap=6),
             Bar(percent=percent, color=color, background=background),
         ],
     )
@@ -195,12 +195,12 @@ def IconValue(
             Column(
                 align="center",
                 justify="center",
-                gap=2,
+                gap=4,
                 children=[value_component, label_component],
             ),
         ],
-        gap=6,
-        padding=4,
+        gap=8,
+        padding=6,
     )
 
 
@@ -234,7 +234,7 @@ def CenteredValue(
     return Column(
         align="center",
         justify="center",
-        gap=6,
+        gap=8,
         children=children,
     )
 
@@ -264,7 +264,7 @@ def LabelValue(
             Spacer(),
             Text(value, font=font, color=value_color, align="end"),
         ],
-        gap=4,
+        gap=6,
     )
 
 
@@ -293,12 +293,12 @@ def StatusIndicator(
     status_text = on_text if is_on else off_text
 
     return Row(
-        gap=8,
+        gap=10,
         align="center",
         justify="space-between",
         children=[
             Row(
-                gap=6,
+                gap=8,
                 children=[
                     # Status indicator icon - 14px for visibility on small display
                     Icon("check" if is_on else "warning", size=14, color=color),
@@ -342,15 +342,15 @@ def ProgressRow(
     )
 
     return Column(
-        gap=2,
+        gap=4,
         children=[
             Row(
-                gap=4,
+                gap=6,
                 justify="space-between",
                 children=[c for c in header_children if c is not None],
             ),
             Row(
-                gap=4,
+                gap=6,
                 children=[
                     Bar(percent=percent, color=color, height=6),
                     Text(f"{percent:.0f}%", font="tiny", color=COLOR_WHITE),

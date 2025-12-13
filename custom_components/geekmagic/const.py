@@ -108,11 +108,12 @@ PLACEHOLDER_NAME = "Unknown"
 
 # Spacing constants for consistent layout (in pixels)
 # Use these in component helpers and widgets for uniform spacing
-SPACING_XS = 2  # Extra small - tight spacing between related items
-SPACING_SM = 4  # Small - default gap between small elements
-SPACING_MD = 6  # Medium - standard gap between components
-SPACING_LG = 8  # Large - padding around content
-SPACING_XL = 12  # Extra large - major section separation
+# Increased from original values for better readability per user feedback
+SPACING_XS = 4  # Extra small - tight spacing between related items (was 2)
+SPACING_SM = 6  # Small - default gap between small elements (was 4)
+SPACING_MD = 8  # Medium - standard gap between components (was 6)
+SPACING_LG = 10  # Large - padding around content (was 8)
+SPACING_XL = 14  # Extra large - major section separation (was 12)
 
 # Responsive padding percentages (as decimals)
 # Multiply by container width to get pixel value

@@ -89,9 +89,10 @@ class Renderer:
         self._scaled_width = self.width * self._scale
         self._scaled_height = self.height * self._scale
 
-        # Load fonts at scaled sizes (min 11px for readability on 240x240 display)
-        self.font_tiny = _load_font(11 * self._scale)
-        self.font_small = _load_font(13 * self._scale)
+        # Load fonts at scaled sizes (min 13px for readability on 240x240 display)
+        # Tiny font increased from 11px to 13px for better readability
+        self.font_tiny = _load_font(13 * self._scale)
+        self.font_small = _load_font(14 * self._scale)
         self.font_regular = _load_font(15 * self._scale)
         self.font_medium = _load_font(18 * self._scale)
         self.font_large = _load_font(24 * self._scale)
@@ -138,9 +139,10 @@ class Renderer:
         # Font config: (base_size, min_size) per category
         # Base sizes are for full 240px height at 2x scale = 480px
         # Min sizes ensure readability even in small containers
+        # Tiny/small increased 20% for better readability per user feedback
         font_config = {
-            "tiny": (11, 18),
-            "small": (13, 20),
+            "tiny": (13, 22),  # Increased from (11, 18)
+            "small": (14, 24),  # Increased from (13, 20)
             "regular": (15, 24),
             "medium": (18, 28),
             "large": (24, 34),
