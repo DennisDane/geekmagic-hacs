@@ -245,5 +245,5 @@ class GeekMagicSlotLabelText(GeekMagicTextEntity):
         screen_idx = self.entity_description.screen_index
         slot_idx = self.entity_description.slot_index
         if screen_idx is not None and slot_idx is not None:
-            return f"S{screen_idx + 1} Slot {slot_idx + 1} Label"
+            return f"Screen {screen_idx + 1} Slot {slot_idx + 1} Label"
         return "Slot Label"
