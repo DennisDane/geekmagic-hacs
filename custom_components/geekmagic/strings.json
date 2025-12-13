@@ -27,9 +27,9 @@
           "action": "Action"
         }
       },
-      "global_settings": {
-        "title": "Global Settings",
-        "description": "Configure display-wide settings.",
+      "device_settings": {
+        "title": "Device Settings",
+        "description": "Configure settings for this device.",
         "data": {
           "refresh_interval": "Refresh interval (seconds)",
           "screen_cycle_interval": "Screen cycle interval (0 = manual only)"

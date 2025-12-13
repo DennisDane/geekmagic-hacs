@@ -138,8 +138,8 @@ class GeekMagicOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             action = user_input.get("action")
             _LOGGER.debug("Options flow: user selected action '%s'", action)
-            if action == "global_settings":
-                return await self.async_step_global_settings()
+            if action == "device_settings":
+                return await self.async_step_device_settings()
             if action == "manage_screens":
                 return await self.async_step_manage_screens()
 
@@ -149,7 +149,7 @@ class GeekMagicOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Required("action"): vol.In(
                         {
-                            "global_settings": "Global Settings",
+                            "device_settings": "Device Settings",
                             "manage_screens": "Manage Screens",
                         }
                     )
@@ -157,17 +157,17 @@ class GeekMagicOptionsFlow(config_entries.OptionsFlow):
             ),
         )
 
-    async def async_step_global_settings(
+    async def async_step_device_settings(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Configure global settings."""
+        """Configure device-specific settings."""
         if user_input is not None:
             self._options[CONF_REFRESH_INTERVAL] = user_input[CONF_REFRESH_INTERVAL]
             self._options[CONF_SCREEN_CYCLE_INTERVAL] = user_input[CONF_SCREEN_CYCLE_INTERVAL]
             return self.async_create_entry(title="", data=self._options)
 
         return self.async_show_form(
-            step_id="global_settings",
+            step_id="device_settings",
             data_schema=vol.Schema(
                 {
                     vol.Required(
@@ -392,8 +392,7 @@ class GeekMagicOptionsFlow(config_entries.OptionsFlow):
         # Get existing widget options if editing
         existing_widget = None
         for w in self._screen_config.get(CONF_WIDGETS, []):
-            slot_match = w.get("slot") in (self._current_slot - 1, self._current_slot)
-            if slot_match and w.get("type") == widget_type:
+            if w.get("slot") == self._current_slot and w.get("type") == widget_type:
                 existing_widget = w
                 break
 
