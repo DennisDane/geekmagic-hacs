@@ -58,18 +58,34 @@ custom_components/geekmagic/
 ├── device.py         # HTTP API client for GeekMagic
 ├── renderer.py       # Pillow image generation
 ├── const.py          # Constants and config keys
+├── templates.py      # Screen template definitions
 ├── widgets/          # Widget components
 │   ├── base.py       # Widget base class
 │   ├── clock.py      # Clock widget
 │   ├── entity.py     # HA entity display
 │   ├── media.py      # Media player widget
 │   ├── chart.py      # Sparkline chart
+│   ├── helpers.py    # Widget helper functions
 │   └── text.py       # Static/dynamic text
 ├── layouts/          # Layout systems
 │   ├── base.py       # Layout base class
 │   ├── grid.py       # 2x2, 2x3, 3x3 grids
 │   ├── hero.py       # Hero + footer layout
 │   └── split.py      # Split panel layouts
+├── entities/         # Entity platform implementations
+│   ├── entity.py     # Base GeekMagicEntity class
+│   ├── number.py     # Number entities (brightness, etc.)
+│   ├── select.py     # Select entities (layout, widget type)
+│   ├── switch.py     # Switch entities (boolean options)
+│   ├── text.py       # Text entities (names, labels)
+│   ├── button.py     # Button entities (refresh, nav)
+│   └── sensor.py     # Sensor entities (status, dividers)
+├── number.py         # Re-export for HA platform discovery
+├── select.py         # Re-export for HA platform discovery
+├── switch.py         # Re-export for HA platform discovery
+├── text.py           # Re-export for HA platform discovery
+├── button.py         # Re-export for HA platform discovery
+├── sensor.py         # Re-export for HA platform discovery
 ├── manifest.json     # HACS metadata
 ├── services.yaml     # Service definitions
 └── strings.json      # UI translations
@@ -215,6 +231,34 @@ from ..widgets.layout_helpers import (
 3. Register in `layouts/__init__.py`
 4. Add to `LAYOUT_CLASSES` in `coordinator.py`
 5. Add to config flow options
+
+## Home Assistant Platform Discovery
+
+**IMPORTANT**: Home Assistant discovers entity platforms by looking for modules at `custom_components.<domain>.<platform>`. For example, `Platform.NUMBER` looks for `custom_components.geekmagic.number`.
+
+Entity implementations live in `entities/` subfolder for organization, but **stub modules must exist at the root level** that re-export `async_setup_entry`:
+
+```python
+# custom_components/geekmagic/number.py (stub for HA discovery)
+"""Number platform - re-exports from entities submodule."""
+from .entities.number import async_setup_entry
+__all__ = ["async_setup_entry"]
+```
+
+### When Adding New Entity Platforms
+
+1. Create implementation in `entities/<platform>.py`
+2. Create stub at `custom_components/geekmagic/<platform>.py` that re-exports `async_setup_entry`
+3. Add `Platform.<PLATFORM>` to `PLATFORMS` list in `__init__.py`
+
+### Common Mistake to Avoid
+
+Moving entity files to a subfolder without creating re-export stubs will cause:
+```
+ModuleNotFoundError: No module named 'custom_components.geekmagic.<platform>'
+```
+
+The fix is to create stub modules that re-export from the subfolder.
 
 ## Asyncio and Blocking Operations
 
