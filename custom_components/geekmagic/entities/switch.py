@@ -6,8 +6,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
-from homeassistant.const import EntityCategory
+from homeassistant.const import CONF_HOST, EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from ..const import (
@@ -77,16 +78,17 @@ async def async_setup_entry(
 ) -> None:
     """Set up GeekMagic switch entities."""
     coordinator: GeekMagicCoordinator = hass.data[DOMAIN][entry.entry_id]
+    ent_reg = er.async_get(hass)
+    host = entry.data[CONF_HOST]
 
-    # Track created entity IDs
-    current_entity_ids: set[str] = set()
+    # Track created entity keys (for adding new entities)
+    current_entity_keys: set[str] = set()
 
-    @callback
-    def async_update_entities() -> None:
-        """Update entities when coordinator data changes."""
-        entities_to_add: list[GeekMagicWidgetOptionSwitch] = []
-
+    def _get_required_keys() -> set[str]:
+        """Calculate which entity keys should exist based on current widget types."""
+        required: set[str] = set()
         screens = coordinator.options.get(CONF_SCREENS, [])
+
         for screen_idx, screen_config in enumerate(screens):
             layout_type = screen_config.get(CONF_LAYOUT, LAYOUT_GRID_2X2)
             slot_count = LAYOUT_SLOT_COUNTS.get(layout_type, 4)
@@ -105,11 +107,55 @@ async def async_setup_entry(
 
                 if widget_type and widget_type in WIDGET_BOOLEAN_OPTIONS:
                     bool_opts = WIDGET_BOOLEAN_OPTIONS[widget_type]
+                    for option_key, _display_name, _default, _icon in bool_opts:
+                        entity_key = f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_{option_key}"
+                        required.add(entity_key)
+
+        return required
+
+    @callback
+    def async_update_entities() -> None:
+        """Update entities when coordinator data changes."""
+        nonlocal current_entity_keys
+
+        required_keys = _get_required_keys()
+        entities_to_add: list[GeekMagicWidgetOptionSwitch] = []
+
+        # Remove entities that are no longer needed
+        keys_to_remove = current_entity_keys - required_keys
+        for key in keys_to_remove:
+            unique_id = f"{host}_{key}"
+            entity_id = ent_reg.async_get_entity_id("switch", DOMAIN, unique_id)
+            if entity_id:
+                ent_reg.async_remove(entity_id)
+        current_entity_keys -= keys_to_remove
+
+        # Add new entities
+        keys_to_add = required_keys - current_entity_keys
+        screens = coordinator.options.get(CONF_SCREENS, [])
+
+        for screen_idx, screen_config in enumerate(screens):
+            layout_type = screen_config.get(CONF_LAYOUT, LAYOUT_GRID_2X2)
+            slot_count = LAYOUT_SLOT_COUNTS.get(layout_type, 4)
+            widgets = screen_config.get(CONF_WIDGETS, [])
+
+            widget_map: dict[int, dict[str, Any]] = {}
+            for widget in widgets:
+                slot = widget.get("slot")
+                if slot is not None:
+                    widget_map[slot] = widget
+
+            for slot_idx in range(slot_count):
+                widget = widget_map.get(slot_idx, {})
+                widget_type = widget.get("type")
+
+                if widget_type and widget_type in WIDGET_BOOLEAN_OPTIONS:
+                    bool_opts = WIDGET_BOOLEAN_OPTIONS[widget_type]
                     for option_key, display_name, default, icon in bool_opts:
                         entity_key = f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_{option_key}"
 
-                        if entity_key not in current_entity_ids:
-                            current_entity_ids.add(entity_key)
+                        if entity_key in keys_to_add:
+                            current_entity_keys.add(entity_key)
                             # "Opt:" prefix sorts after Display, Entity, Label
                             name = (
                                 f"Screen {screen_idx + 1} Slot {slot_idx + 1} Opt: {display_name}"

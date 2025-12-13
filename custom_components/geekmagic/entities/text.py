@@ -13,8 +13,9 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.text import TextEntity, TextEntityDescription
-from homeassistant.const import EntityCategory
+from homeassistant.const import CONF_HOST, EntityCategory
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from ..const import (
@@ -49,21 +50,56 @@ async def async_setup_entry(
 ) -> None:
     """Set up GeekMagic text entities."""
     coordinator: GeekMagicCoordinator = hass.data[DOMAIN][entry.entry_id]
+    ent_reg = er.async_get(hass)
+    host = entry.data[CONF_HOST]
 
-    # Track created entity IDs
-    current_entity_ids: set[str] = set()
+    # Track created entity keys
+    current_entity_keys: set[str] = set()
+
+    def _get_required_keys() -> set[str]:
+        """Calculate which entity keys should exist based on current config."""
+        required: set[str] = set()
+
+        screens = coordinator.options.get(CONF_SCREENS, [])
+        for screen_idx, screen_config in enumerate(screens):
+            # Screen name
+            required.add(f"screen_{screen_idx + 1}_name")
+
+            # Per-slot labels
+            layout_type = screen_config.get(CONF_LAYOUT, LAYOUT_GRID_2X2)
+            slot_count = LAYOUT_SLOT_COUNTS.get(layout_type, 4)
+
+            for slot_idx in range(slot_count):
+                required.add(f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_label")
+
+        return required
 
     @callback
     def async_update_entities() -> None:
         """Update entities when coordinator data changes."""
+        nonlocal current_entity_keys
+
+        required_keys = _get_required_keys()
         entities_to_add: list[GeekMagicTextEntity] = []
+
+        # Remove entities that are no longer needed
+        keys_to_remove = current_entity_keys - required_keys
+        for key in keys_to_remove:
+            unique_id = f"{host}_{key}"
+            entity_id = ent_reg.async_get_entity_id("text", DOMAIN, unique_id)
+            if entity_id:
+                ent_reg.async_remove(entity_id)
+        current_entity_keys -= keys_to_remove
+
+        # Add new entities
+        keys_to_add = required_keys - current_entity_keys
 
         screens = coordinator.options.get(CONF_SCREENS, [])
         for screen_idx, screen_config in enumerate(screens):
             # Screen name text entity
             name_key = f"screen_{screen_idx + 1}_name"
-            if name_key not in current_entity_ids:
-                current_entity_ids.add(name_key)
+            if name_key in keys_to_add:
+                current_entity_keys.add(name_key)
                 entities_to_add.append(
                     GeekMagicScreenNameText(
                         coordinator,
@@ -85,8 +121,8 @@ async def async_setup_entry(
             for slot_idx in range(slot_count):
                 # Label text
                 label_key = f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_label"
-                if label_key not in current_entity_ids:
-                    current_entity_ids.add(label_key)
+                if label_key in keys_to_add:
+                    current_entity_keys.add(label_key)
                     entities_to_add.append(
                         GeekMagicSlotLabelText(
                             coordinator,
@@ -108,7 +144,7 @@ async def async_setup_entry(
     # Initial setup
     async_update_entities()
 
-    # Listen for coordinator updates
+    # Listen for coordinator updates to add/remove entities
     entry.async_on_unload(coordinator.async_add_listener(async_update_entities))
 
 
