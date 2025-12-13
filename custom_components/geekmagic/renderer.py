@@ -93,6 +93,9 @@ class Renderer:
         self.font_regular_bold = _load_font(15 * self._scale, bold=True)
         self.font_medium_bold = _load_font(18 * self._scale, bold=True)
 
+        # Font cache for dynamically sized fonts (avoid repeated disk I/O)
+        self._font_cache: dict[tuple[int, bool], FreeTypeFont | ImageFont.ImageFont] = {}
+
     @property
     def scale(self) -> int:
         """Return the supersampling scale factor."""
@@ -145,7 +148,11 @@ class Renderer:
         # Scale font size with category-specific minimum for readability
         scaled_size = max(min_size, int(base_size * self._scale * scale_factor))
 
-        return _load_font(scaled_size, bold=bold)
+        # Check cache first to avoid repeated disk I/O
+        cache_key = (scaled_size, bold)
+        if cache_key not in self._font_cache:
+            self._font_cache[cache_key] = _load_font(scaled_size, bold=bold)
+        return self._font_cache[cache_key]
 
     def _scale_rect(self, rect: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
         """Scale a rectangle for supersampling."""
