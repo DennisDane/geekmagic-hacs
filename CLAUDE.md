@@ -7,11 +7,45 @@ Home Assistant custom integration for GeekMagic displays (SmallTV Pro and simila
 Use `uv` for all Python operations:
 
 ```bash
-uv sync              # Install dependencies
-uv run pytest        # Run tests
-uv run pytest -v     # Run tests with verbose output
-uv run ruff check .  # Lint code
-uv run ruff format . # Format code
+uv sync                       # Install dependencies
+uv run pytest                 # Run tests
+uv run pytest -v              # Run tests with verbose output
+uv run ruff check .           # Lint code
+uv run ruff format .          # Format code
+uv run ty check               # Type check
+uv run pre-commit run --all   # Run all pre-commit hooks
+```
+
+## Git Workflow
+
+Follow **Conventional Commits** and create **atomic commits** as you work:
+
+### Commit Types
+- `feat:` New feature
+- `fix:` Bug fix
+- `refactor:` Code refactoring (no functional change)
+- `docs:` Documentation only
+- `test:` Adding/updating tests
+- `chore:` Maintenance (deps, config, tooling)
+- `style:` Formatting, whitespace (no code change)
+
+### Atomic Commits
+Create small, focused commits that each represent a single logical change:
+
+1. **After implementing a feature** → commit the feature
+2. **After fixing a bug** → commit the fix
+3. **After adding tests** → commit the tests
+4. **After refactoring** → commit the refactor
+
+Run tests before committing to validate changes: `uv run pytest`
+
+### Examples
+```bash
+git commit -m "feat: add clock widget with timezone support"
+git commit -m "fix: handle missing entity gracefully in EntityWidget"
+git commit -m "test: add unit tests for sparkline rendering"
+git commit -m "refactor: extract color parsing into helper function"
+git commit -m "chore: add ty type checker and pre-commit hooks"
 ```
 
 ## Project Structure
