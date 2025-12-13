@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -44,7 +45,9 @@ class GeekMagicEntity(CoordinatorEntity["GeekMagicCoordinator"]):
         self.entity_description = description
         # Config entry is always set when entities are created
         entry = self._get_config_entry()
-        self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        # Use host as unique ID base to match image entity
+        host = entry.data[CONF_HOST]
+        self._attr_unique_id = f"{host}_{description.key}"
 
     def _get_config_entry(self) -> ConfigEntry:
         """Get the config entry, asserting it exists.
@@ -63,13 +66,15 @@ class GeekMagicEntity(CoordinatorEntity["GeekMagicCoordinator"]):
     def device_info(self) -> DeviceInfo:
         """Return device information."""
         entry = self._get_config_entry()
+        # Use host as identifier to match image entity
+        host = entry.data[CONF_HOST]
         return DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=self.coordinator.device_name,
+            identifiers={(DOMAIN, host)},
+            name=entry.data.get(CONF_NAME, "GeekMagic Display"),
             manufacturer="GeekMagic",
             model="SmallTV Pro",
             sw_version=self.coordinator.device_version,
-            configuration_url=f"http://{self.coordinator.device.host}",
+            configuration_url=f"http://{host}",
         )
 
     async def _async_update_options(self, key: str, value: Any) -> None:

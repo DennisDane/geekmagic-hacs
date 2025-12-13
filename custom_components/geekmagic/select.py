@@ -136,11 +136,12 @@ async def async_setup_entry(
                     )
                 )
 
-            # Per-slot widget type selectors
+            # Per-slot widget type and entity selectors
             layout_type = screen_config.get(CONF_LAYOUT, LAYOUT_GRID_2X2)
             slot_count = LAYOUT_SLOT_COUNTS.get(layout_type, 4)
 
             for slot_idx in range(slot_count):
+                # Widget type selector
                 widget_key = f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_widget"
                 if widget_key not in current_entity_ids:
                     current_entity_ids.add(widget_key)
@@ -153,6 +154,26 @@ async def async_setup_entry(
                                 icon="mdi:widgets",
                                 entity_category=EntityCategory.CONFIG,
                                 select_type="widget_type",
+                                screen_index=screen_idx,
+                                slot_index=slot_idx,
+                            ),
+                        )
+                    )
+
+                # Entity selector (dropdown with all available entities)
+                entity_key = f"screen_{screen_idx + 1}_slot_{slot_idx + 1}_entity"
+                if entity_key not in current_entity_ids:
+                    current_entity_ids.add(entity_key)
+                    entities_to_add.append(
+                        GeekMagicSlotEntitySelect(
+                            coordinator,
+                            hass,
+                            GeekMagicSelectEntityDescription(
+                                key=entity_key,
+                                translation_key="slot_entity",
+                                icon="mdi:identifier",
+                                entity_category=EntityCategory.CONFIG,
+                                select_type="entity",
                                 screen_index=screen_idx,
                                 slot_index=slot_idx,
                             ),
@@ -245,6 +266,14 @@ class GeekMagicScreenTemplateSelect(GeekMagicSelectEntity):
                 template_key,
             )
 
+    @property
+    def name(self) -> str:
+        """Return entity name with screen context."""
+        screen_idx = self.entity_description.screen_index
+        if screen_idx is not None:
+            return f"Screen {screen_idx + 1} Template"
+        return "Template"
+
 
 class GeekMagicScreenLayoutSelect(GeekMagicSelectEntity):
     """Select entity for screen layout."""
@@ -294,6 +323,14 @@ class GeekMagicScreenLayoutSelect(GeekMagicSelectEntity):
                     entry,
                     options=new_options,
                 )
+
+    @property
+    def name(self) -> str:
+        """Return entity name with screen context."""
+        screen_idx = self.entity_description.screen_index
+        if screen_idx is not None:
+            return f"Screen {screen_idx + 1} Layout"
+        return "Layout"
 
 
 class GeekMagicSlotWidgetSelect(GeekMagicSelectEntity):
@@ -374,8 +411,121 @@ class GeekMagicSlotWidgetSelect(GeekMagicSelectEntity):
 
     @property
     def name(self) -> str:
-        """Return entity name with slot number."""
+        """Return entity name with screen and slot context."""
+        screen_idx = self.entity_description.screen_index
         slot_idx = self.entity_description.slot_index
-        if slot_idx is not None:
-            return f"Slot {slot_idx + 1} Widget"
+        if screen_idx is not None and slot_idx is not None:
+            return f"S{screen_idx + 1} Slot {slot_idx + 1} Widget"
         return "Widget"
+
+
+class GeekMagicSlotEntitySelect(GeekMagicSelectEntity):
+    """Select entity for slot entity_id with dropdown picker.
+
+    This provides a dropdown of available Home Assistant entities
+    for easier selection compared to typing entity IDs manually.
+    """
+
+    def __init__(
+        self,
+        coordinator: GeekMagicCoordinator,
+        hass: HomeAssistant,
+        description: GeekMagicSelectEntityDescription,
+    ) -> None:
+        """Initialize the entity selector."""
+        super().__init__(coordinator, description)
+        self._hass_ref = hass
+
+    def _get_widget_config(self) -> dict | None:
+        """Get the widget configuration for this slot."""
+        screen_idx = self.entity_description.screen_index
+        slot_idx = self.entity_description.slot_index
+        if screen_idx is None or slot_idx is None:
+            return None
+
+        screens = self.coordinator.options.get(CONF_SCREENS, [])
+        if screen_idx >= len(screens):
+            return None
+
+        widgets = screens[screen_idx].get(CONF_WIDGETS, [])
+        for widget in widgets:
+            if widget.get("slot") == slot_idx:
+                return widget
+        return None
+
+    @property
+    def options(self) -> list[str]:
+        """Return available entity options.
+
+        Returns a list of all entity IDs plus "None" for clearing.
+        Entities are grouped by domain for easier navigation.
+        """
+        # Get all entity IDs, sorted for consistency
+        entity_ids = sorted(self._hass_ref.states.async_entity_ids())
+
+        # Add "None" option at the start to allow clearing
+        return ["(none)", *entity_ids]
+
+    @property
+    def current_option(self) -> str | None:
+        """Return the current entity_id."""
+        widget = self._get_widget_config()
+        if widget:
+            entity_id = widget.get("entity_id", "")
+            if entity_id:
+                return entity_id
+        return "(none)"
+
+    async def async_select_option(self, option: str) -> None:
+        """Set the entity_id."""
+        screen_idx = self.entity_description.screen_index
+        slot_idx = self.entity_description.slot_index
+
+        if screen_idx is None or slot_idx is None:
+            return
+
+        entry = self._get_config_entry()
+        new_options = dict(entry.options)
+        screens = list(new_options.get(CONF_SCREENS, []))
+
+        if screen_idx >= len(screens):
+            return
+
+        screens[screen_idx] = dict(screens[screen_idx])
+        widgets = list(screens[screen_idx].get(CONF_WIDGETS, []))
+
+        # Determine entity_id value (empty if "(none)")
+        entity_id = "" if option == "(none)" else option
+
+        # Find or update widget for this slot
+        found = False
+        for i, widget in enumerate(widgets):
+            if widget.get("slot") == slot_idx:
+                widgets[i] = dict(widget)
+                if entity_id:
+                    widgets[i]["entity_id"] = entity_id
+                elif "entity_id" in widgets[i]:
+                    del widgets[i]["entity_id"]
+                found = True
+                break
+
+        if not found and entity_id:
+            # Widget doesn't exist yet - can't set entity_id without type
+            return
+
+        screens[screen_idx][CONF_WIDGETS] = widgets
+        new_options[CONF_SCREENS] = screens
+
+        self._hass_ref.config_entries.async_update_entry(
+            entry,
+            options=new_options,
+        )
+
+    @property
+    def name(self) -> str:
+        """Return entity name with screen and slot context."""
+        screen_idx = self.entity_description.screen_index
+        slot_idx = self.entity_description.slot_index
+        if screen_idx is not None and slot_idx is not None:
+            return f"S{screen_idx + 1} Slot {slot_idx + 1} Entity"
+        return "Entity"

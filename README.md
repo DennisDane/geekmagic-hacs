@@ -71,7 +71,146 @@ The welcome screen shows:
 - **Entity count** - Total entities in your system
 - **Configure hint** - Reminder to set up your dashboard
 
-Go to the integration options to add screens and widgets. Changes are applied immediately to the device.
+---
+
+## Entity-Based Configuration (WLED-Style)
+
+GeekMagic uses **entity-based configuration** similar to WLED. Instead of navigating through settings menus, you configure your display directly through Home Assistant entities on the device page.
+
+### Device Entities
+
+After setup, your device exposes these configuration entities:
+
+#### Device Controls
+| Entity | Type | Description |
+|--------|------|-------------|
+| `number.xxx_brightness` | Number | Display brightness (0-100) |
+| `number.xxx_refresh_interval` | Number | Update interval in seconds (5-300) |
+| `number.xxx_screen_cycle_interval` | Number | Auto-cycle screens (0=disabled, 5-300s) |
+| `number.xxx_screen_count` | Number | Number of screens (1-10) |
+| `select.xxx_current_screen` | Select | Active screen selector |
+
+#### Action Buttons
+| Entity | Type | Description |
+|--------|------|-------------|
+| `button.xxx_refresh_now` | Button | Force immediate display update |
+| `button.xxx_next_screen` | Button | Switch to next screen |
+| `button.xxx_previous_screen` | Button | Switch to previous screen |
+
+#### Diagnostic Sensors
+| Entity | Type | Description |
+|--------|------|-------------|
+| `sensor.xxx_status` | Sensor | Connection status (connected/disconnected) |
+| `sensor.xxx_last_update` | Sensor | Timestamp of last successful update |
+| `sensor.xxx_current_screen_name` | Sensor | Name of the currently active screen |
+
+### Per-Screen Entities
+
+Each screen has its own configuration entities:
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| `text.xxx_screen_N_name` | Text | Screen name |
+| `select.xxx_screen_N_template` | Select | Apply a preset template |
+| `select.xxx_screen_N_layout` | Select | Layout type (grid, hero, split, etc.) |
+
+### Per-Slot Entities
+
+Each slot in a layout has widget configuration:
+
+| Entity | Type | Description |
+|--------|------|-------------|
+| `select.xxx_screen_N_slot_M_widget` | Select | Widget type |
+| `text.xxx_screen_N_slot_M_entity` | Text | Home Assistant entity ID to display |
+| `text.xxx_screen_N_slot_M_label` | Text | Custom label (optional) |
+
+### Widget Option Switches
+
+Boolean options for each widget type appear as switches:
+
+| Widget | Options |
+|--------|---------|
+| Clock | `show_seconds`, `show_date` |
+| Entity | `show_name`, `show_unit`, `show_panel` |
+| Chart | `show_value`, `show_range` |
+| Media | `show_artist`, `show_album`, `show_progress` |
+| Weather | `show_forecast`, `show_humidity`, `show_wind` |
+| Progress | `show_target` |
+| Camera | `show_label` |
+
+---
+
+## Screen Templates
+
+Templates provide one-click screen setup. Select a template and it automatically configures the layout and widget types:
+
+| Template | Layout | Description |
+|----------|--------|-------------|
+| **System Monitor** | Grid 2x2 | CPU, Memory, Disk, Network gauges |
+| **Smart Home** | Grid 2x3 | Temperature, humidity, lights, motion, door, presence |
+| **Weather** | Hero | Weather hero + temperature, humidity, wind |
+| **Media Player** | Hero | Now playing with album art |
+| **Clock** | Hero | Large clock with date and info |
+| **Energy** | Grid 2x2 | Power, daily usage, cost, grid status |
+| **Security** | Grid 2x3 | Camera, door, window, motion, alarm, lock |
+| **Thermostat** | Hero | HVAC control with temperature |
+
+### Quick Setup with Templates
+
+1. Go to your device page in Home Assistant
+2. Find `Screen 1 Template` select entity
+3. Choose a template (e.g., "Weather Dashboard")
+4. The layout and widgets are auto-configured
+5. Set the entity IDs for each slot (e.g., `weather.home`)
+6. Done! Display updates immediately
+
+### Example Automation
+
+```yaml
+# Automatically configure display on startup
+automation:
+  - alias: "Configure GeekMagic on startup"
+    trigger:
+      - platform: homeassistant
+        event: start
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.geekmagic_display_screen_1_template
+        data:
+          option: "Weather Dashboard"
+      - service: text.set_value
+        target:
+          entity_id: text.geekmagic_display_screen_1_slot_1_entity
+        data:
+          value: "weather.home"
+```
+
+```yaml
+# Cycle screens based on time of day
+automation:
+  - alias: "Morning dashboard"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.geekmagic_display_current_screen
+        data:
+          option: "Weather"
+
+  - alias: "Evening dashboard"
+    trigger:
+      - platform: time
+        at: "18:00:00"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.geekmagic_display_current_screen
+        data:
+          option: "Media"
+```
 
 ---
 
@@ -401,6 +540,11 @@ Three vertical columns with customizable widths.
 |---------|-------------|
 | `geekmagic.refresh` | Force immediate display update |
 | `geekmagic.brightness` | Set display brightness (0-100) |
+| `geekmagic.set_screen` | Switch to a specific screen by index |
+| `geekmagic.next_screen` | Switch to the next screen |
+| `geekmagic.previous_screen` | Switch to the previous screen |
+
+> **Tip**: For most use cases, you can use the entity-based controls instead of services. For example, use the `button.xxx_next_screen` entity or `select.xxx_current_screen` entity for screen navigation.
 
 ## Device Compatibility
 
