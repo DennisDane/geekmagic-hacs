@@ -77,12 +77,13 @@ class GeekMagicPreviewImage(ImageEntity):
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        # Update timestamp when coordinator refreshes - this tells frontend to refetch
-        if self.coordinator.last_image is not None:
+        # Only update timestamp when preview actually changed
+        # (prevents constant state changes during periodic refreshes)
+        if self.coordinator.preview_just_updated and self.coordinator.last_image is not None:
             self._attr_image_last_updated = dt_util.utcnow()
             # Clear cached image to force refetch
             self._cached_image = None
-        self.async_write_ha_state()
+            self.async_write_ha_state()
 
     async def async_image(self) -> bytes | None:
         """Return the current display preview image."""

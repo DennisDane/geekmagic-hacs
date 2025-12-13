@@ -106,6 +106,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
         self.config_entry = config_entry
         self._camera_images: dict[str, bytes] = {}  # Pre-fetched camera images
         self._update_preview: bool = True  # Update preview on next refresh
+        self._preview_just_updated: bool = False  # True if preview was updated in last refresh
 
         # Get refresh interval from options
         interval = self.options.get(CONF_REFRESH_INTERVAL, DEFAULT_REFRESH_INTERVAL)
@@ -443,6 +444,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
 
             # Only update preview image on config changes or manual refresh
             # (prevents HA UI from refreshing during periodic updates)
+            self._preview_just_updated = self._update_preview
             if self._update_preview:
                 self._last_image = png_data
                 self._update_preview = False
@@ -481,6 +483,11 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
     def last_image(self) -> bytes | None:
         """Get the last rendered image as PNG bytes."""
         return self._last_image
+
+    @property
+    def preview_just_updated(self) -> bool:
+        """Check if preview was updated in the last refresh cycle."""
+        return self._preview_just_updated
 
     @property
     def device_name(self) -> str:
