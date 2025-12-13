@@ -23,11 +23,12 @@ from .const import (
     LAYOUT_GRID_2X3,
     LAYOUT_HERO,
     LAYOUT_SPLIT,
+    LAYOUT_THREE_COLUMN,
 )
 from .device import GeekMagicDevice
 from .layouts.grid import Grid2x2, Grid2x3
 from .layouts.hero import HeroLayout
-from .layouts.split import SplitLayout
+from .layouts.split import SplitLayout, ThreeColumnLayout
 from .renderer import Renderer
 from .widgets.base import WidgetConfig
 from .widgets.chart import ChartWidget
@@ -47,6 +48,7 @@ LAYOUT_CLASSES = {
     LAYOUT_GRID_2X3: Grid2x3,
     LAYOUT_HERO: HeroLayout,
     LAYOUT_SPLIT: SplitLayout,
+    LAYOUT_THREE_COLUMN: ThreeColumnLayout,
 }
 
 WIDGET_CLASSES = {

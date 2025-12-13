@@ -47,6 +47,48 @@ class Layout(ABC):
     def _calculate_slots(self) -> None:
         """Calculate the slot rectangles. Override in subclasses."""
 
+    def _available_space(self) -> tuple[int, int]:
+        """Calculate available width and height after padding.
+
+        Returns:
+            Tuple of (available_width, available_height)
+        """
+        return (
+            self.width - 2 * self.padding,
+            self.height - 2 * self.padding,
+        )
+
+    def _grid_cell_size(self, rows: int, cols: int) -> tuple[int, int]:
+        """Calculate cell size for a grid layout.
+
+        Args:
+            rows: Number of rows
+            cols: Number of columns
+
+        Returns:
+            Tuple of (cell_width, cell_height)
+        """
+        aw, ah = self._available_space()
+        return (
+            (aw - (cols - 1) * self.gap) // cols,
+            (ah - (rows - 1) * self.gap) // rows,
+        )
+
+    def _split_dimension(self, total: int, ratio: float) -> tuple[int, int]:
+        """Split a dimension by ratio, accounting for gap.
+
+        Args:
+            total: Total available dimension (excluding gap)
+            ratio: Ratio for first section (0.0-1.0)
+
+        Returns:
+            Tuple of (first_size, second_size)
+        """
+        content = total - self.gap
+        first = int(content * ratio)
+        second = content - first
+        return first, second
+
     def get_slot_count(self) -> int:
         """Return the number of widget slots."""
         return len(self.slots)

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..const import COLOR_GRAY, COLOR_LIME, COLOR_RED, COLOR_WHITE
+from ..const import COLOR_GRAY, COLOR_LIME, COLOR_RED, COLOR_WHITE, PLACEHOLDER_NAME
 from .base import Widget, WidgetConfig
+from .helpers import estimate_max_chars, is_entity_on, resolve_label, truncate_text
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -51,25 +52,22 @@ class StatusWidget(Widget):
         # Get entity state
         state = self.get_entity_state(hass)
 
-        # Determine if on or off
-        is_on = False
-        if state is not None:
-            is_on = state.state.lower() in ("on", "true", "home", "locked", "1")
+        # Determine if on or off using helper
+        is_on = is_entity_on(state)
 
         # Get color and text
         color = self.on_color if is_on else self.off_color
         status_text = self.on_text if is_on else self.off_text
 
-        # Get label
-        name = self.config.label
+        # Get label using helpers
+        name = resolve_label(self.config, state, PLACEHOLDER_NAME)
         if not name and state:
-            name = state.attributes.get("friendly_name", state.entity_id)
-        name = name or "Unknown"
+            name = state.entity_id
+        name = name or PLACEHOLDER_NAME
 
-        # Truncate name if too long
-        max_name_len = (ctx.width - 40) // 7
-        if len(name) > max_name_len:
-            name = name[: max_name_len - 2] + ".."
+        # Truncate name using consistent helper
+        max_name_len = estimate_max_chars(ctx.width, char_width=7, padding=20)
+        name = truncate_text(name, max_name_len)
 
         # Draw status indicator (dot)
         dot_x = padding + dot_radius
@@ -166,6 +164,9 @@ class StatusListWidget(Widget):
         row_height = min(int(ctx.height * 0.17), available_height // row_count)
         dot_radius = max(2, int(ctx.height * 0.025))
 
+        # Calculate max label length once
+        max_len = estimate_max_chars(ctx.width, char_width=7, padding=30)
+
         # Draw each entity
         for entry in self.entities:
             if isinstance(entry, list | tuple):
@@ -177,25 +178,17 @@ class StatusListWidget(Widget):
             # Get state
             state = hass.states.get(entity_id) if hass else None
 
-            is_on = False
-            if state is not None:
-                # Consider these states as "on" (good/active):
-                # - "on", "true", "1" for switches/lights
-                # - "home" for presence
-                # - "locked" for locks (security = good)
-                # - "open" for covers/doors that should be open
-                is_on = state.state.lower() in ("on", "true", "home", "locked", "1")
-                if not label:
-                    label = state.attributes.get("friendly_name", entity_id)
+            # Use helper for state checking
+            is_on = is_entity_on(state)
+            if state is not None and not label:
+                label = state.attributes.get("friendly_name", entity_id)
             label = label or entity_id
 
             # Get color
             color = self.on_color if is_on else self.off_color
 
-            # Truncate label
-            max_len = (ctx.width - 60) // 7
-            if len(label) > max_len:
-                label = label[: max_len - 2] + ".."
+            # Truncate label using helper
+            label = truncate_text(label, max_len)
 
             # Draw dot
             dot_y = current_y + row_height // 2

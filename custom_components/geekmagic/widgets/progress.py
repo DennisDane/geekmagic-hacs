@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
 from ..const import COLOR_CYAN, COLOR_DARK_GRAY, COLOR_GRAY, COLOR_WHITE
 from .base import Widget, WidgetConfig
+from .helpers import extract_numeric, get_unit, resolve_label
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -46,27 +46,21 @@ class ProgressWidget(Widget):
         icon_size = max(10, int(ctx.height * 0.23))
         bar_height = max(6, int(ctx.height * 0.17))
 
-        # Get entity state
+        # Get entity state and extract value using helper
         state = self.get_entity_state(hass)
-        current_value = 0.0
-        display_value = "0"
+        current_value = extract_numeric(state)
+        display_value = f"{current_value:.0f}"
 
-        if state is not None:
-            with contextlib.suppress(ValueError, TypeError):
-                current_value = float(state.state)
-                display_value = f"{current_value:.0f}"
-            if not self.unit:
-                self.unit = state.attributes.get("unit_of_measurement", "")
+        # Get unit from state if not configured
+        if not self.unit and state is not None:
+            self.unit = get_unit(state)
 
         # Calculate percentage
         target = self.target or 100
         percent = min(100, (current_value / target) * 100) if target > 0 else 0
 
-        # Get label
-        name = self.config.label
-        if not name and state:
-            name = state.attributes.get("friendly_name", "")
-        name = name or "Progress"
+        # Get label using helper
+        name = resolve_label(self.config, state, "Progress")
 
         color = self.config.color or COLOR_CYAN
 
@@ -184,17 +178,14 @@ class MultiProgressWidget(Widget):
             icon = item.get("icon")
             unit = item.get("unit", "")
 
-            # Get state
-            current_value = 0.0
-            if hass and entity_id:
-                state = hass.states.get(entity_id)
-                if state is not None:
-                    with contextlib.suppress(ValueError, TypeError):
-                        current_value = float(state.state)
-                    if not label:
-                        label = state.attributes.get("friendly_name", entity_id)
-                    if not unit:
-                        unit = state.attributes.get("unit_of_measurement", "")
+            # Get state and extract value using helper
+            state = hass.states.get(entity_id) if hass and entity_id else None
+            current_value = extract_numeric(state)
+            if state is not None:
+                if not label:
+                    label = state.attributes.get("friendly_name", entity_id)
+                if not unit:
+                    unit = get_unit(state)
 
             label = label or entity_id or "Item"
             percent = min(100, (current_value / target) * 100) if target > 0 else 0

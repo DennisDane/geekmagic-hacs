@@ -123,6 +123,27 @@ GET  /app.json               # Get device state
 - Use high contrast colors (light on dark)
 - JPEG upload is faster than PNG (~2.5s vs ~5.8s)
 
+## Font Size Conventions
+
+Use consistent font size names when calling `ctx.get_font()`. Fonts are automatically scaled based on container height.
+
+| Size Name | Use Case | Example Widgets |
+|-----------|----------|-----------------|
+| `tiny` | Small labels, secondary info | Entity name below value |
+| `small` | Labels, status text | Icon labels, humidity |
+| `regular` | Standard text, body content | Default text widget |
+| `medium` | Emphasized values | Gauge values |
+| `large` | Primary values | Entity values |
+| `xlarge` | Hero values | Clock time, temperature |
+| `huge` | Maximum emphasis | Single large values |
+
+**Best practices:**
+- Use `xlarge` for primary displayed values (clock, temperature)
+- Use `tiny` or `small` for labels that accompany values
+- Use `regular` as the default
+- Add `bold=True` for values that need emphasis
+- Fonts scale automatically - don't use pixel sizes directly
+
 ## Testing
 
 Tests are organized by component:
@@ -157,6 +178,35 @@ Uses `pytest-homeassistant-custom-component` for HA-specific fixtures. See:
 4. Register in `widgets/__init__.py`
 5. Add to `WIDGET_CLASSES` in `coordinator.py`
 6. Add tests in `tests/widgets/`
+
+### Widget Helper Functions
+
+Use helper functions from `widgets/helpers.py` for common operations:
+
+```python
+from ..widgets.helpers import (
+    truncate_text,       # Truncate long text with ellipsis
+    extract_numeric,     # Get float from entity state
+    resolve_label,       # Get label from config or friendly_name
+    calculate_percent,   # Calculate percentage in range
+    is_entity_on,        # Check binary state
+    get_unit,            # Get unit of measurement
+)
+```
+
+### Layout Helper Functions
+
+Use `widgets/layout_helpers.py` for common rendering patterns:
+
+```python
+from ..widgets.layout_helpers import (
+    layout_icon_label_value,   # [Icon] [Label] ... [Value]
+    layout_centered_value,     # Centered value with label below
+    layout_bar_with_label,     # Progress bar with label/value above
+    layout_list_rows,          # Calculate row positions for lists
+    draw_title,                # Draw title at top
+)
+```
 
 ## Adding New Layouts
 

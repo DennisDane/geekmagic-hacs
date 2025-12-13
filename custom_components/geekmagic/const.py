@@ -30,6 +30,7 @@ LAYOUT_GRID_2X2 = "grid_2x2"
 LAYOUT_GRID_2X3 = "grid_2x3"
 LAYOUT_HERO = "hero"
 LAYOUT_SPLIT = "split"
+LAYOUT_THREE_COLUMN = "three_column"
 
 # Widget types
 WIDGET_CLOCK = "clock"
@@ -50,6 +51,7 @@ LAYOUT_SLOT_COUNTS = {
     LAYOUT_GRID_2X3: 6,
     LAYOUT_HERO: 4,
     LAYOUT_SPLIT: 2,
+    LAYOUT_THREE_COLUMN: 3,
 }
 
 # Widget type display names for UI
@@ -96,3 +98,8 @@ COLOR_LIME = (102, 166, 30)
 COLOR_GOLD = (230, 171, 2)
 COLOR_BROWN = (166, 118, 29)
 COLOR_RED = (231, 76, 60)  # Custom red for alerts/errors
+
+# Standard placeholder strings for missing data
+PLACEHOLDER_VALUE = "--"
+PLACEHOLDER_TEXT = "No data"
+PLACEHOLDER_NAME = "Unknown"

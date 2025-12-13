@@ -49,12 +49,14 @@ class SplitLayout(Layout):
         """Calculate split panel rectangles."""
         self.slots = []
 
-        available_width = self.width - (2 * self.padding) - self.gap
-        available_height = self.height - (2 * self.padding) - self.gap
+        # Use base class helper for available space
+        available_width, available_height = self._available_space()
 
         if self.horizontal:
             # Top/bottom split
-            top_height = int((available_height + self.gap) * self.ratio) - self.gap // 2
+            # Content height is available minus the gap between panels
+            content_height = available_height - self.gap
+            top_height = int(content_height * self.ratio)
 
             # Top slot
             self.slots.append(
@@ -83,7 +85,9 @@ class SplitLayout(Layout):
             )
         else:
             # Left/right split
-            left_width = int((available_width + self.gap) * self.ratio) - self.gap // 2
+            # Content width is available minus the gap between panels
+            content_width = available_width - self.gap
+            left_width = int(content_width * self.ratio)
 
             # Left slot
             self.slots.append(

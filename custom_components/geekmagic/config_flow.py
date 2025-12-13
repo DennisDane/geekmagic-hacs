@@ -27,6 +27,7 @@ from .const import (
     LAYOUT_HERO,
     LAYOUT_SLOT_COUNTS,
     LAYOUT_SPLIT,
+    LAYOUT_THREE_COLUMN,
     WIDGET_TYPE_NAMES,
 )
 from .device import GeekMagicDevice
@@ -45,6 +46,7 @@ LAYOUT_OPTIONS = {
     LAYOUT_GRID_2X3: "Grid 2x3 (6 slots)",
     LAYOUT_HERO: "Hero (4 slots)",
     LAYOUT_SPLIT: "Split (2 slots)",
+    LAYOUT_THREE_COLUMN: "Three Column (3 slots)",
 }
 
 

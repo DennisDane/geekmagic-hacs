@@ -6,6 +6,7 @@ container (0, 0 to width, height) instead of absolute canvas coordinates.
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING
 
 from .const import COLOR_DARK_GRAY, COLOR_PANEL, COLOR_WHITE
@@ -15,6 +16,8 @@ if TYPE_CHECKING:
     from PIL.ImageFont import FreeTypeFont, ImageFont
 
     from .renderer import Renderer
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class RenderContext:
@@ -58,6 +61,68 @@ class RenderContext:
         """Convert local rect to absolute canvas coordinates."""
         x1, y1, x2, y2 = rect
         return (self._x1 + x1, self._y1 + y1, self._x1 + x2, self._y1 + y2)
+
+    def _check_point_bounds(self, x: int, y: int, context: str = "") -> None:
+        """Log warning if point is outside widget bounds.
+
+        Args:
+            x: X coordinate in local space
+            y: Y coordinate in local space
+            context: Description of the operation for logging
+        """
+        if x < 0 or x > self.width or y < 0 or y > self.height:
+            _LOGGER.debug(
+                "Drawing outside widget bounds: %s at (%d, %d), bounds=(0, 0, %d, %d)",
+                context or "operation",
+                x,
+                y,
+                self.width,
+                self.height,
+            )
+
+    def _check_rect_bounds(self, rect: tuple[int, int, int, int], context: str = "") -> None:
+        """Log warning if rect extends outside widget bounds.
+
+        Args:
+            rect: (x1, y1, x2, y2) in local coordinates
+            context: Description of the operation for logging
+        """
+        x1, y1, x2, y2 = rect
+        if x1 < 0 or y1 < 0 or x2 > self.width or y2 > self.height:
+            _LOGGER.debug(
+                "Drawing outside widget bounds: %s rect=(%d, %d, %d, %d), bounds=(0, 0, %d, %d)",
+                context or "operation",
+                x1,
+                y1,
+                x2,
+                y2,
+                self.width,
+                self.height,
+            )
+
+    def is_point_in_bounds(self, x: int, y: int) -> bool:
+        """Check if a point is within widget bounds.
+
+        Args:
+            x: X coordinate in local space
+            y: Y coordinate in local space
+
+        Returns:
+            True if point is within bounds
+        """
+        return 0 <= x <= self.width and 0 <= y <= self.height
+
+    def is_rect_in_bounds(self, rect: tuple[int, int, int, int]) -> bool:
+        """Check if a rect is fully within widget bounds.
+
+        Args:
+            rect: (x1, y1, x2, y2) in local coordinates
+
+        Returns:
+            True if rect is fully within bounds
+        """
+        x1, y1, x2, y2 = rect
+        return x1 >= 0 and y1 >= 0 and x2 <= self.width and y2 <= self.height
 
     # =========================================================================
     # Font Methods

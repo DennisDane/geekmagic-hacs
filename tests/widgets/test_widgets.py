@@ -16,8 +16,12 @@ from custom_components.geekmagic.widgets.base import WidgetConfig
 from custom_components.geekmagic.widgets.chart import ChartWidget
 from custom_components.geekmagic.widgets.clock import ClockWidget
 from custom_components.geekmagic.widgets.entity import EntityWidget
+from custom_components.geekmagic.widgets.gauge import GaugeWidget
 from custom_components.geekmagic.widgets.media import MediaWidget
+from custom_components.geekmagic.widgets.progress import MultiProgressWidget, ProgressWidget
+from custom_components.geekmagic.widgets.status import StatusListWidget, StatusWidget
 from custom_components.geekmagic.widgets.text import TextWidget
+from custom_components.geekmagic.widgets.weather import WeatherWidget
 
 
 @pytest.fixture
@@ -413,3 +417,392 @@ class TestTextWidget:
             widget = TextWidget(config)
             widget.render(ctx)
             assert img.size == (480, 480)
+
+
+class TestGaugeWidget:
+    """Tests for GaugeWidget."""
+
+    def test_init(self):
+        """Test gauge widget initialization."""
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.cpu",
+        )
+        widget = GaugeWidget(config)
+        assert widget.style == "bar"
+        assert widget.min_value == 0
+        assert widget.max_value == 100
+        assert widget.show_value is True
+
+    def test_init_with_options(self):
+        """Test gauge widget with custom options."""
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.cpu",
+            options={"style": "ring", "min": 10, "max": 50, "unit": "%"},
+        )
+        widget = GaugeWidget(config)
+        assert widget.style == "ring"
+        assert widget.min_value == 10
+        assert widget.max_value == 50
+        assert widget.unit == "%"
+
+    def test_render_bar_style(self, renderer, canvas, rect, hass):
+        """Test rendering bar gauge."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.cpu", "75", {"friendly_name": "CPU"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.cpu",
+            options={"style": "bar"},
+        )
+        widget = GaugeWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_ring_style(self, renderer, canvas, rect, hass):
+        """Test rendering ring gauge."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.cpu", "50", {"friendly_name": "CPU"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.cpu",
+            options={"style": "ring"},
+        )
+        widget = GaugeWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_arc_style(self, renderer, canvas, rect, hass):
+        """Test rendering arc gauge."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.cpu", "25", {"friendly_name": "CPU"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.cpu",
+            options={"style": "arc"},
+        )
+        widget = GaugeWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_without_entity(self, renderer, canvas, rect):
+        """Test rendering without entity shows placeholder."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+
+        config = WidgetConfig(widget_type="gauge", slot=0)
+        widget = GaugeWidget(config)
+        widget.render(ctx)
+        assert img.size == (480, 480)
+
+
+class TestProgressWidget:
+    """Tests for ProgressWidget."""
+
+    def test_init(self):
+        """Test progress widget initialization."""
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+        )
+        widget = ProgressWidget(config)
+        assert widget.target == 100
+        assert widget.show_target is True
+
+    def test_init_with_options(self):
+        """Test progress widget with custom options."""
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target": 10000, "unit": "steps", "show_target": False},
+        )
+        widget = ProgressWidget(config)
+        assert widget.target == 10000
+        assert widget.unit == "steps"
+        assert widget.show_target is False
+
+    def test_render_with_entity(self, renderer, canvas, rect, hass):
+        """Test rendering with entity state."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set(
+            "sensor.steps", "5000", {"friendly_name": "Steps", "unit_of_measurement": "steps"}
+        )
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target": 10000},
+        )
+        widget = ProgressWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_without_entity(self, renderer, canvas, rect):
+        """Test rendering without entity."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+
+        config = WidgetConfig(widget_type="progress", slot=0)
+        widget = ProgressWidget(config)
+        widget.render(ctx)
+        assert img.size == (480, 480)
+
+
+class TestMultiProgressWidget:
+    """Tests for MultiProgressWidget."""
+
+    def test_init(self):
+        """Test multi-progress widget initialization."""
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={"items": [], "title": "Fitness"},
+        )
+        widget = MultiProgressWidget(config)
+        assert widget.items == []
+        assert widget.title == "Fitness"
+
+    def test_get_entities(self):
+        """Test entity dependencies."""
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "items": [
+                    {"entity_id": "sensor.steps", "target": 10000},
+                    {"entity_id": "sensor.calories", "target": 500},
+                ]
+            },
+        )
+        widget = MultiProgressWidget(config)
+        assert "sensor.steps" in widget.get_entities()
+        assert "sensor.calories" in widget.get_entities()
+
+    def test_render_with_items(self, renderer, canvas, rect, hass):
+        """Test rendering with multiple items."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "5000", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.calories", "300", {"friendly_name": "Calories"})
+
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "title": "Fitness",
+                "items": [
+                    {"entity_id": "sensor.steps", "target": 10000, "label": "Steps"},
+                    {"entity_id": "sensor.calories", "target": 500, "label": "Cal"},
+                ],
+            },
+        )
+        widget = MultiProgressWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+
+class TestStatusWidget:
+    """Tests for StatusWidget."""
+
+    def test_init(self):
+        """Test status widget initialization."""
+        config = WidgetConfig(
+            widget_type="status",
+            slot=0,
+            entity_id="binary_sensor.door",
+        )
+        widget = StatusWidget(config)
+        assert widget.on_text == "ON"
+        assert widget.off_text == "OFF"
+        assert widget.show_status_text is True
+
+    def test_init_with_options(self):
+        """Test status widget with custom options."""
+        config = WidgetConfig(
+            widget_type="status",
+            slot=0,
+            entity_id="binary_sensor.door",
+            options={"on_text": "Open", "off_text": "Closed"},
+        )
+        widget = StatusWidget(config)
+        assert widget.on_text == "Open"
+        assert widget.off_text == "Closed"
+
+    def test_render_on_state(self, renderer, canvas, rect, hass):
+        """Test rendering on state."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("binary_sensor.door", "on", {"friendly_name": "Front Door"})
+
+        config = WidgetConfig(
+            widget_type="status",
+            slot=0,
+            entity_id="binary_sensor.door",
+        )
+        widget = StatusWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_off_state(self, renderer, canvas, rect, hass):
+        """Test rendering off state."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("binary_sensor.door", "off", {"friendly_name": "Front Door"})
+
+        config = WidgetConfig(
+            widget_type="status",
+            slot=0,
+            entity_id="binary_sensor.door",
+        )
+        widget = StatusWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+
+class TestStatusListWidget:
+    """Tests for StatusListWidget."""
+
+    def test_init(self):
+        """Test status list widget initialization."""
+        config = WidgetConfig(
+            widget_type="status_list",
+            slot=0,
+            options={"entities": [], "title": "Doors"},
+        )
+        widget = StatusListWidget(config)
+        assert widget.entities == []
+        assert widget.title == "Doors"
+
+    def test_get_entities(self):
+        """Test entity dependencies."""
+        config = WidgetConfig(
+            widget_type="status_list",
+            slot=0,
+            options={"entities": ["binary_sensor.front_door", ["binary_sensor.back_door", "Back"]]},
+        )
+        widget = StatusListWidget(config)
+        entities = widget.get_entities()
+        assert "binary_sensor.front_door" in entities
+        assert "binary_sensor.back_door" in entities
+
+    def test_render_with_entities(self, renderer, canvas, rect, hass):
+        """Test rendering with multiple entities."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("binary_sensor.front_door", "on", {"friendly_name": "Front"})
+        hass.states.async_set("binary_sensor.back_door", "off", {"friendly_name": "Back"})
+
+        config = WidgetConfig(
+            widget_type="status_list",
+            slot=0,
+            options={
+                "title": "Doors",
+                "entities": ["binary_sensor.front_door", "binary_sensor.back_door"],
+            },
+        )
+        widget = StatusListWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+
+class TestWeatherWidget:
+    """Tests for WeatherWidget."""
+
+    def test_init(self):
+        """Test weather widget initialization."""
+        config = WidgetConfig(
+            widget_type="weather",
+            slot=0,
+            entity_id="weather.home",
+        )
+        widget = WeatherWidget(config)
+        assert widget.show_forecast is True
+        assert widget.forecast_days == 3
+        assert widget.show_humidity is True
+
+    def test_init_with_options(self):
+        """Test weather widget with custom options."""
+        config = WidgetConfig(
+            widget_type="weather",
+            slot=0,
+            entity_id="weather.home",
+            options={"show_forecast": False, "forecast_days": 5, "show_humidity": False},
+        )
+        widget = WeatherWidget(config)
+        assert widget.show_forecast is False
+        assert widget.forecast_days == 5
+        assert widget.show_humidity is False
+
+    def test_render_without_entity(self, renderer, canvas, rect):
+        """Test rendering without entity shows placeholder."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+
+        config = WidgetConfig(widget_type="weather", slot=0)
+        widget = WeatherWidget(config)
+        widget.render(ctx)
+        assert img.size == (480, 480)
+
+    def test_render_with_entity(self, renderer, canvas, rect, hass):
+        """Test rendering with weather entity."""
+        img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set(
+            "weather.home",
+            "sunny",
+            {
+                "friendly_name": "Home",
+                "temperature": 22,
+                "humidity": 45,
+                "forecast": [
+                    {"datetime": "Mon", "condition": "sunny", "temperature": 24},
+                    {"datetime": "Tue", "condition": "cloudy", "temperature": 20},
+                ],
+            },
+        )
+
+        config = WidgetConfig(
+            widget_type="weather",
+            slot=0,
+            entity_id="weather.home",
+        )
+        widget = WeatherWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)
+
+    def test_render_compact_mode(self, renderer, hass):
+        """Test rendering in compact mode (small container)."""
+        img, draw = renderer.create_canvas()
+        # Small rect to trigger compact mode
+        small_rect = (10, 10, 70, 70)
+        ctx = RenderContext(draw, small_rect, renderer)
+        hass.states.async_set(
+            "weather.home",
+            "rainy",
+            {"temperature": 15, "humidity": 80},
+        )
+
+        config = WidgetConfig(
+            widget_type="weather",
+            slot=0,
+            entity_id="weather.home",
+        )
+        widget = WeatherWidget(config)
+        widget.render(ctx, hass=hass)
+        assert img.size == (480, 480)

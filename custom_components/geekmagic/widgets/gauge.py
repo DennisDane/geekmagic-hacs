@@ -2,11 +2,18 @@
 
 from __future__ import annotations
 
-import contextlib
 from typing import TYPE_CHECKING
 
 from ..const import COLOR_CYAN, COLOR_DARK_GRAY, COLOR_GRAY, COLOR_WHITE
 from .base import Widget, WidgetConfig
+from .helpers import (
+    calculate_percent,
+    extract_numeric,
+    format_value_with_unit,
+    get_unit,
+    resolve_label,
+)
+from .layout_helpers import layout_bar_with_label
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -42,30 +49,20 @@ class GaugeWidget(Widget):
         """
         # Get entity state
         state = self.get_entity_state(hass)
-        value = 0.0
-        display_value = "--"
 
-        if state is not None:
-            # Read from attribute if specified, otherwise from state
-            raw_value = state.attributes.get(self.attribute) if self.attribute else state.state
-            with contextlib.suppress(ValueError, TypeError):
-                value = float(raw_value)
-                display_value = f"{value:.0f}"
-            if not self.unit:
-                self.unit = state.attributes.get("unit_of_measurement", "")
+        # Extract numeric value and display string
+        value = extract_numeric(state, self.attribute)
+        display_value = f"{value:.0f}" if state is not None else "--"
 
-        # Calculate percentage
-        value_range = self.max_value - self.min_value
-        if value_range > 0:
-            percent = max(0, min(100, ((value - self.min_value) / value_range) * 100))
-        else:
-            percent = 0
+        # Get unit from state if not configured
+        if not self.unit and state is not None:
+            self.unit = get_unit(state)
 
-        # Get label
-        name = self.config.label
-        if not name and state:
-            name = state.attributes.get("friendly_name", "")
-        name = name or ""
+        # Calculate percentage using helper
+        percent = calculate_percent(value, self.min_value, self.max_value)
+
+        # Get label using helper
+        name = resolve_label(self.config, state)
 
         color = self.config.color or COLOR_CYAN
 
@@ -85,52 +82,16 @@ class GaugeWidget(Widget):
         color: tuple[int, int, int],
     ) -> None:
         """Render as horizontal progress bar."""
-        # Get scaled fonts
-        font_label = ctx.get_font("tiny")
-        font_value = ctx.get_font("medium", bold=True)
-
-        # Calculate layout relative to container
-        icon_size = max(10, int(ctx.height * 0.23))
-        label_y = int(ctx.height * 0.33)
-        bar_height = max(6, int(ctx.height * 0.17))
-        bar_y = int(ctx.height * 0.67) - bar_height // 2
-        rel_padding = int(ctx.height * 0.13)
-
-        # Draw icon if present
-        text_start_x = rel_padding
-        if self.icon is not None:
-            ctx.draw_icon(
-                self.icon,
-                (rel_padding, label_y - icon_size // 2),
-                size=icon_size,
-                color=color,
-            )
-            text_start_x = rel_padding + icon_size + 4
-
-        # Draw label
-        if name:
-            ctx.draw_text(
-                name.upper(),
-                (text_start_x, label_y),
-                font=font_label,
-                color=COLOR_GRAY,
-                anchor="lm",
-            )
-
-        # Draw value
-        if self.show_value:
-            value_text = f"{value}{self.unit}" if self.unit else value
-            ctx.draw_text(
-                value_text,
-                (ctx.width - rel_padding, label_y),
-                font=font_value,
-                color=COLOR_WHITE,
-                anchor="rm",
-            )
-
-        # Draw bar
-        bar_rect = (rel_padding, bar_y, ctx.width - rel_padding, bar_y + bar_height)
-        ctx.draw_bar(bar_rect, percent, color, COLOR_DARK_GRAY)
+        value_text = format_value_with_unit(value, self.unit) if self.show_value else ""
+        layout_bar_with_label(
+            ctx,
+            percent=percent,
+            label=name,
+            value=value_text,
+            color=color,
+            background=COLOR_DARK_GRAY,
+            icon=self.icon,
+        )
 
     def _render_ring(
         self,
@@ -165,9 +126,8 @@ class GaugeWidget(Widget):
 
         # Draw value in center
         if self.show_value:
-            value_text = f"{value}{self.unit}" if self.unit else value
             ctx.draw_text(
-                value_text,
+                format_value_with_unit(value, self.unit),
                 (center_x, center_y - int(ctx.height * 0.04)),
                 font=font_value,
                 color=COLOR_WHITE,
@@ -214,9 +174,8 @@ class GaugeWidget(Widget):
 
         # Draw value
         if self.show_value:
-            value_text = f"{value}{self.unit}" if self.unit else value
             ctx.draw_text(
-                value_text,
+                format_value_with_unit(value, self.unit),
                 (center_x, center_y - int(ctx.height * 0.04)),
                 font=font_value,
                 color=COLOR_WHITE,
