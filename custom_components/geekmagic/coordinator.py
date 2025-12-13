@@ -290,11 +290,9 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             )
             layout.render(self.renderer, draw, self.hass)
         else:
-            _LOGGER.warning(
-                "No layout available for screen %d (total layouts: %d)",
-                self._current_screen,
-                len(self._layouts),
-            )
+            # No screens configured - show welcome screen
+            _LOGGER.debug("No screens configured, rendering welcome screen")
+            self.renderer.draw_welcome_screen(draw)
 
         # Encode to both formats
         jpeg_data = self.renderer.to_jpeg(img)

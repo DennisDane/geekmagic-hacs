@@ -57,6 +57,16 @@ A Home Assistant custom integration for GeekMagic displays (SmallTV Pro and simi
 3. Search for "GeekMagic"
 4. Enter your device's IP address
 
+### Initial Setup
+
+After adding the integration, your device will display a welcome screen until you configure a dashboard:
+
+<p align="center">
+  <img src="samples/00_welcome_screen.png" alt="Welcome Screen" width="180">
+</p>
+
+Go to the integration options to add screens and widgets. Changes are applied immediately to the device.
+
 ---
 
 ## Widgets

@@ -1369,3 +1369,111 @@ class Renderer:
         buffer = BytesIO()
         final_img.save(buffer, format="PNG")
         return buffer.getvalue()
+
+    def draw_welcome_screen(self, draw: ImageDraw.ImageDraw) -> None:
+        """Draw a welcome screen when no configuration is set.
+
+        Args:
+            draw: ImageDraw instance
+        """
+        center_x = self.width // 2
+        center_y = self.height // 2
+
+        # Draw a subtle gradient-like background with concentric rounded rects
+        for i in range(3):
+            offset = i * 15
+            shade = 30 - i * 8
+            self.draw_rounded_rect(
+                draw,
+                (offset, offset, self.width - offset, self.height - offset),
+                radius=20 - i * 5,
+                fill=(shade, shade, shade + 5),
+            )
+
+        # Draw a decorative icon (gear/settings)
+        icon_y = center_y - 50
+        icon_size = 40
+        gear_color = COLOR_CYAN
+
+        # Draw gear circle
+        self.draw_ellipse(
+            draw,
+            (
+                center_x - icon_size // 2,
+                icon_y - icon_size // 2,
+                center_x + icon_size // 2,
+                icon_y + icon_size // 2,
+            ),
+            outline=gear_color,
+        )
+        # Inner circle
+        inner_size = icon_size // 3
+        self.draw_ellipse(
+            draw,
+            (
+                center_x - inner_size // 2,
+                icon_y - inner_size // 2,
+                center_x + inner_size // 2,
+                icon_y + inner_size // 2,
+            ),
+            fill=gear_color,
+        )
+
+        # Draw gear teeth (8 small rectangles around the circle)
+        tooth_len = 8
+        tooth_width = 6
+
+        for angle in range(0, 360, 45):
+            rad = math.radians(angle)
+            # Tooth position (outside the circle)
+            tx = center_x + int((icon_size // 2 + 2) * math.cos(rad))
+            ty = icon_y + int((icon_size // 2 + 2) * math.sin(rad))
+            # Draw small rectangle as tooth
+            self.draw_rect(
+                draw,
+                (
+                    tx - tooth_width // 2,
+                    ty - tooth_len // 2,
+                    tx + tooth_width // 2,
+                    ty + tooth_len // 2,
+                ),
+                fill=gear_color,
+            )
+
+        # Title text
+        self.draw_text(
+            draw,
+            "GeekMagic",
+            (center_x, center_y + 10),
+            font=self.font_large,
+            color=COLOR_WHITE,
+            anchor="mm",
+        )
+
+        # Subtitle
+        self.draw_text(
+            draw,
+            "Home Assistant",
+            (center_x, center_y + 35),
+            font=self.font_small,
+            color=COLOR_CYAN,
+            anchor="mm",
+        )
+
+        # Instructions
+        self.draw_text(
+            draw,
+            "Configure in",
+            (center_x, center_y + 65),
+            font=self.font_tiny,
+            color=COLOR_GRAY,
+            anchor="mm",
+        )
+        self.draw_text(
+            draw,
+            "Settings → Integrations",
+            (center_x, center_y + 80),
+            font=self.font_tiny,
+            color=COLOR_GRAY,
+            anchor="mm",
+        )

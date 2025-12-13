@@ -807,6 +807,13 @@ def generate_security(renderer: Renderer, output_dir: Path) -> None:
     save_image(renderer, img, "12_security", output_dir)
 
 
+def generate_welcome_screen(renderer: Renderer, output_dir: Path) -> None:
+    """Generate welcome screen shown when device has no configuration."""
+    img, draw = renderer.create_canvas()
+    renderer.draw_welcome_screen(draw)
+    save_image(renderer, img, "00_welcome_screen", output_dir)
+
+
 def main() -> None:
     """Generate all sample images."""
     output_dir = Path(__file__).parent.parent / "samples"
@@ -817,6 +824,7 @@ def main() -> None:
     print("Generating sample dashboards using layout system...")
     print()
 
+    generate_welcome_screen(renderer, output_dir)
     generate_system_monitor(renderer, output_dir)
     generate_smart_home(renderer, output_dir)
     generate_weather(renderer, output_dir)
@@ -831,7 +839,7 @@ def main() -> None:
     generate_security(renderer, output_dir)
 
     print()
-    print(f"Done! Generated 12 sample images in {output_dir}")
+    print(f"Done! Generated 13 sample images in {output_dir}")
 
 
 if __name__ == "__main__":
