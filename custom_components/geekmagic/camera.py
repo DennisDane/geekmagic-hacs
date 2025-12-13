@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from functools import lru_cache
+from io import BytesIO
 from typing import TYPE_CHECKING
 
 from homeassistant.components.camera import Camera
@@ -10,21 +12,43 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from PIL import Image, ImageDraw
 
-from .const import DOMAIN
+from .const import DISPLAY_HEIGHT, DISPLAY_WIDTH, DOMAIN
 
 if TYPE_CHECKING:
     from .coordinator import GeekMagicCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-# 1x1 transparent PNG placeholder (67 bytes)
-_PLACEHOLDER_PNG = (
-    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
-    b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89"
-    b"\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05\x00\x01"
-    b"\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
-)
+
+@lru_cache(maxsize=1)
+def _get_placeholder_png() -> bytes:
+    """Generate a 240x240 placeholder PNG image.
+
+    Returns a dark gray image with "Loading..." text.
+    Generated once and cached for reuse.
+    """
+    # Create a 240x240 dark image
+    img = Image.new("RGB", (DISPLAY_WIDTH, DISPLAY_HEIGHT), (32, 32, 32))
+    draw = ImageDraw.Draw(img)
+
+    # Draw "Loading..." text centered
+    text = "Loading..."
+    bbox = draw.textbbox((0, 0), text)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    x = (DISPLAY_WIDTH - text_width) // 2
+    y = (DISPLAY_HEIGHT - text_height) // 2
+    draw.text((x, y), text, fill=(128, 128, 128))
+
+    # Convert to PNG bytes
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    result = buffer.getvalue()
+
+    _LOGGER.debug("Generated placeholder PNG: %d bytes", len(result))
+    return result
 
 
 async def async_setup_entry(
@@ -104,23 +128,27 @@ class GeekMagicPreviewCamera(Camera):
         Always returns an image - either the current display or a placeholder.
         This ensures MJPEG streams don't break when no image is ready.
         """
-        # Use cached image from coordinator
-        image = self._last_image or self.coordinator.last_image
-        if image is not None:
-            self._last_image = image
-            _LOGGER.debug(
-                "Camera %s: Returning image of %d bytes",
-                self._attr_unique_id,
-                len(image),
-            )
-            return image
+        try:
+            # Use cached image from coordinator
+            image = self._last_image or self.coordinator.last_image
+            if image is not None:
+                self._last_image = image
+                _LOGGER.debug(
+                    "Camera %s: Returning image of %d bytes",
+                    self._attr_unique_id,
+                    len(image),
+                )
+                return image
 
-        # Return placeholder to prevent stream from breaking
-        _LOGGER.debug(
-            "Camera %s: No image available yet, returning placeholder",
-            self._attr_unique_id,
-        )
-        return _PLACEHOLDER_PNG
+            # Return placeholder to prevent stream from breaking
+            _LOGGER.debug(
+                "Camera %s: No image available yet, returning placeholder",
+                self._attr_unique_id,
+            )
+            return _get_placeholder_png()
+        except Exception:
+            _LOGGER.exception("Camera %s: Error getting image", self._attr_unique_id)
+            return _get_placeholder_png()
 
     @property
     def available(self) -> bool:
