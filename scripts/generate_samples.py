@@ -350,7 +350,31 @@ def generate_system_monitor(renderer: HighQualityRenderer, output_dir: Path) -> 
     renderer.draw_text(
         draw, "NET", (32, y_start + 7), font=renderer.font_tiny, color=COLOR_GRAY, anchor="lm"
     )
-    net_data = [20, 35, 45, 30, 55, 70, 65, 80, 75, 60, 45, 55]
+    net_data = [
+        20,
+        25,
+        35,
+        40,
+        45,
+        38,
+        30,
+        40,
+        55,
+        65,
+        70,
+        68,
+        65,
+        72,
+        80,
+        78,
+        75,
+        68,
+        60,
+        52,
+        45,
+        50,
+        55,
+    ]
     renderer.draw_mini_bars(
         draw, (75, y_start, 190, y_start + 14), net_data, COLOR_GREEN, bar_width=4, gap=2
     )
@@ -416,7 +440,24 @@ def generate_smart_home(renderer: HighQualityRenderer, output_dir: Path) -> None
     renderer.draw_text(
         draw, "21.5°", (62, 75), font=renderer.font_xlarge, color=COLOR_WHITE, anchor="mm"
     )
-    temp_data = [20.5, 20.8, 21.0, 21.2, 21.5, 21.3, 21.5]
+    temp_data = [
+        20.2,
+        20.4,
+        20.5,
+        20.7,
+        20.8,
+        20.9,
+        21.0,
+        21.1,
+        21.2,
+        21.3,
+        21.4,
+        21.5,
+        21.4,
+        21.3,
+        21.4,
+        21.5,
+    ]
     renderer.draw_sparkline(draw, (16, 85, 108, 95), temp_data, COLOR_ORANGE, fill=True)
 
     # Humidity panel (top right)
@@ -428,7 +469,7 @@ def generate_smart_home(renderer: HighQualityRenderer, output_dir: Path) -> None
     renderer.draw_text(
         draw, "58%", (178, 75), font=renderer.font_xlarge, color=COLOR_WHITE, anchor="mm"
     )
-    humidity_data = [55, 56, 57, 58, 57, 58, 58]
+    humidity_data = [54, 54, 55, 55, 56, 56, 57, 57, 58, 58, 57, 57, 58, 58, 58, 58]
     renderer.draw_sparkline(draw, (132, 85, 224, 95), humidity_data, COLOR_BLUE, fill=True)
 
     # Devices section
@@ -564,7 +605,29 @@ def generate_server_stats(renderer: HighQualityRenderer, output_dir: Path) -> No
         )
 
     # Sparkline for history
-    cpu_history = [45, 52, 48, 65, 72, 68, 75, 82, 78, 73]
+    cpu_history = [
+        45,
+        47,
+        50,
+        52,
+        49,
+        48,
+        55,
+        62,
+        65,
+        68,
+        72,
+        70,
+        68,
+        72,
+        75,
+        78,
+        82,
+        80,
+        78,
+        75,
+        73,
+    ]
     renderer.draw_panel(draw, (125, 100, 230, 115), COLOR_PANEL, radius=2)
     renderer.draw_sparkline(draw, (128, 102, 227, 113), cpu_history, COLOR_CYAN, fill=True)
 
@@ -710,7 +773,34 @@ def generate_energy_monitor(renderer: HighQualityRenderer, output_dir: Path) -> 
         draw, "TODAY", (16, 108), font=renderer.font_tiny, color=COLOR_GRAY, anchor="lm"
     )
 
-    usage_data = [1.2, 0.8, 0.5, 0.4, 0.6, 1.5, 2.8, 3.2, 2.4, 2.0, 1.8, 2.4]
+    usage_data = [
+        1.2,
+        1.0,
+        0.8,
+        0.6,
+        0.5,
+        0.4,
+        0.5,
+        0.6,
+        0.9,
+        1.2,
+        1.5,
+        2.0,
+        2.5,
+        2.8,
+        3.0,
+        3.2,
+        3.0,
+        2.7,
+        2.4,
+        2.2,
+        2.0,
+        1.9,
+        1.8,
+        2.0,
+        2.2,
+        2.4,
+    ]
     renderer.draw_panel(draw, (8, 118, 232, 165), COLOR_PANEL, radius=4)
     renderer.draw_sparkline(draw, (16, 125, 224, 158), usage_data, COLOR_CYAN, fill=True)
 
@@ -911,28 +1001,58 @@ def generate_network_monitor(renderer: HighQualityRenderer, output_dir: Path) ->
     )
     traffic = [
         45,
-        52,
-        38,
-        65,
-        72,
-        55,
         48,
-        82,
-        90,
-        75,
-        68,
-        55,
+        52,
+        48,
         42,
         38,
         45,
-        52,
+        55,
         65,
+        68,
+        72,
+        68,
+        60,
+        55,
+        52,
+        48,
+        55,
+        65,
+        75,
+        82,
+        88,
+        90,
+        85,
+        78,
+        75,
+        72,
+        68,
+        62,
+        55,
+        48,
+        42,
+        38,
+        42,
+        45,
+        48,
+        52,
+        58,
+        65,
+        72,
         78,
         85,
+        80,
+        75,
         72,
+        68,
+        62,
         58,
+        52,
+        48,
         45,
+        42,
         38,
+        40,
         42,
     ]
     renderer.draw_panel(draw, (8, 125, 232, 175), COLOR_PANEL, radius=4)
