@@ -7,17 +7,17 @@ A Home Assistant custom integration for GeekMagic displays (SmallTV Pro and simi
 ## Screenshots
 
 <p align="center">
-  <img src="samples/01_clock.png" width="160" alt="Clock Widget">
-  <img src="samples/02_grid_2x2.png" width="160" alt="2x2 Grid Layout">
-  <img src="samples/04_hero_layout.png" width="160" alt="Hero Layout">
-  <img src="samples/09_dashboard.png" width="160" alt="Dashboard">
+  <img src="samples/01_system_monitor.png" width="160" alt="System Monitor">
+  <img src="samples/02_smart_home.png" width="160" alt="Smart Home">
+  <img src="samples/04_server_stats.png" width="160" alt="Server Stats">
+  <img src="samples/07_fitness.png" width="160" alt="Fitness Tracker">
 </p>
 
 <p align="center">
-  <img src="samples/03_grid_2x3.png" width="160" alt="2x3 Grid Layout">
-  <img src="samples/05_split_layout.png" width="160" alt="Split Layout">
-  <img src="samples/06_media_player.png" width="160" alt="Media Player">
-  <img src="samples/07_chart.png" width="160" alt="Chart Widget">
+  <img src="samples/06_energy_monitor.png" width="160" alt="Energy Monitor">
+  <img src="samples/08_clock_dashboard.png" width="160" alt="Clock Dashboard">
+  <img src="samples/09_network_monitor.png" width="160" alt="Network Monitor">
+  <img src="samples/05_media_player.png" width="160" alt="Media Player">
 </p>
 
 ## Features
