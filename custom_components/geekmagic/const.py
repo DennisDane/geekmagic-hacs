@@ -18,6 +18,13 @@ CONF_REFRESH_INTERVAL = "refresh_interval"
 CONF_LAYOUT = "layout"
 CONF_WIDGETS = "widgets"
 
+# Multi-screen config keys
+CONF_SCREENS = "screens"
+CONF_SCREEN_NAME = "screen_name"
+CONF_SCREEN_CYCLE_INTERVAL = "screen_cycle_interval"
+CONF_CURRENT_SCREEN = "current_screen"
+DEFAULT_SCREEN_CYCLE_INTERVAL = 0  # 0 = manual only, >0 = seconds between screens
+
 # Layout types
 LAYOUT_GRID_2X2 = "grid_2x2"
 LAYOUT_GRID_2X3 = "grid_2x3"
@@ -30,7 +37,35 @@ WIDGET_ENTITY = "entity"
 WIDGET_MEDIA = "media"
 WIDGET_CHART = "chart"
 WIDGET_TEXT = "text"
-WIDGET_BAR = "bar"
+WIDGET_GAUGE = "gauge"
+WIDGET_PROGRESS = "progress"
+WIDGET_MULTI_PROGRESS = "multi_progress"
+WIDGET_STATUS = "status"
+WIDGET_STATUS_LIST = "status_list"
+WIDGET_WEATHER = "weather"
+
+# Layout slot counts
+LAYOUT_SLOT_COUNTS = {
+    LAYOUT_GRID_2X2: 4,
+    LAYOUT_GRID_2X3: 6,
+    LAYOUT_HERO: 4,
+    LAYOUT_SPLIT: 2,
+}
+
+# Widget type display names for UI
+WIDGET_TYPE_NAMES = {
+    WIDGET_CLOCK: "Clock",
+    WIDGET_ENTITY: "Entity",
+    WIDGET_MEDIA: "Media Player",
+    WIDGET_CHART: "Chart",
+    WIDGET_TEXT: "Text",
+    WIDGET_GAUGE: "Gauge",
+    WIDGET_PROGRESS: "Progress",
+    WIDGET_MULTI_PROGRESS: "Multi Progress",
+    WIDGET_STATUS: "Status",
+    WIDGET_STATUS_LIST: "Status List",
+    WIDGET_WEATHER: "Weather",
+}
 
 # Colors (RGB tuples) - Using palettable Bold and Dark2 palettes
 # These are colorblind-friendly and professionally curated

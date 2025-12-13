@@ -30,3 +30,47 @@ brightness:
       required: false
       selector:
         text:
+
+set_screen:
+  name: Set Screen
+  description: Switch to a specific screen by index
+  fields:
+    screen_index:
+      name: Screen Index
+      description: Screen index (0-based)
+      required: true
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 1
+          mode: box
+    entry_id:
+      name: Entry ID
+      description: The config entry ID of the display (optional, sets all if not specified)
+      required: false
+      selector:
+        text:
+
+next_screen:
+  name: Next Screen
+  description: Switch to the next screen
+  fields:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID of the display (optional, switches all if not specified)
+      required: false
+      selector:
+        text:
+
+previous_screen:
+  name: Previous Screen
+  description: Switch to the previous screen
+  fields:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID of the display (optional, switches all if not specified)
+      required: false
+      selector:
+        text:

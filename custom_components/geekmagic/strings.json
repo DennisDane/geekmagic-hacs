@@ -22,9 +22,101 @@
     "step": {
       "init": {
         "title": "GeekMagic Display Options",
+        "description": "Choose what to configure.",
+        "data": {
+          "action": "Action"
+        }
+      },
+      "global_settings": {
+        "title": "Global Settings",
+        "description": "Configure display-wide settings.",
         "data": {
           "refresh_interval": "Refresh interval (seconds)",
+          "screen_cycle_interval": "Screen cycle interval (0 = manual only)"
+        }
+      },
+      "manage_screens": {
+        "title": "Manage Screens",
+        "description": "Add, edit, or delete display screens.",
+        "data": {
+          "action": "Action"
+        }
+      },
+      "add_screen": {
+        "title": "Add New Screen",
+        "description": "Create a new screen configuration.",
+        "data": {
+          "name": "Screen name",
           "layout": "Layout"
+        }
+      },
+      "edit_screen": {
+        "title": "Edit Screen",
+        "description": "Modify screen settings. Changing the layout will preserve compatible widgets.",
+        "data": {
+          "name": "Screen name",
+          "layout": "Layout"
+        }
+      },
+      "configure_slot": {
+        "title": "Configure Slot {slot_number} of {total_slots}",
+        "description": "Select a widget type for this slot ({layout_name}).",
+        "data": {
+          "widget_type": "Widget type"
+        }
+      },
+      "widget_options": {
+        "title": "Configure {widget_type}",
+        "description": "Set options for slot {slot_number}.",
+        "data": {
+          "entity_id": "Entity",
+          "label": "Label (optional)",
+          "text": "Static text",
+          "show_date": "Show date",
+          "show_seconds": "Show seconds",
+          "time_format": "Time format",
+          "show_name": "Show entity name",
+          "show_unit": "Show unit of measurement",
+          "show_artist": "Show artist",
+          "show_album": "Show album",
+          "show_progress": "Show progress bar",
+          "hours": "Hours of history",
+          "show_value": "Show current value",
+          "show_range": "Show min/max range",
+          "size": "Text size",
+          "align": "Text alignment",
+          "style": "Gauge style",
+          "min": "Minimum value",
+          "max": "Maximum value",
+          "unit": "Unit",
+          "target": "Target value",
+          "show_target": "Show target",
+          "on_text": "Text when on",
+          "off_text": "Text when off",
+          "show_status_text": "Show status text",
+          "show_forecast": "Show forecast",
+          "forecast_days": "Forecast days",
+          "show_humidity": "Show humidity",
+          "show_wind": "Show wind",
+          "title": "Title",
+          "entity_id_1": "Entity 1",
+          "label_1": "Label 1",
+          "target_1": "Target 1",
+          "entity_id_2": "Entity 2",
+          "label_2": "Label 2",
+          "target_2": "Target 2",
+          "entity_id_3": "Entity 3",
+          "label_3": "Label 3",
+          "target_3": "Target 3",
+          "entity_id_4": "Entity 4",
+          "label_4": "Label 4"
+        }
+      },
+      "delete_screen": {
+        "title": "Delete Screen",
+        "description": "Are you sure you want to delete \"{screen_name}\"?",
+        "data": {
+          "confirm": "Yes, delete this screen"
         }
       }
     }

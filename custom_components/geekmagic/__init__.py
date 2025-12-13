@@ -131,8 +131,51 @@ async def async_setup_services(hass: HomeAssistant) -> None:
             for coordinator in hass.data[DOMAIN].values():
                 await coordinator.async_set_brightness(brightness)
 
+    async def handle_set_screen(call: ServiceCall) -> None:
+        """Handle set_screen service call."""
+        entry_id = call.data.get("entry_id")
+        screen_index = call.data.get("screen_index", 0)
+
+        if entry_id:
+            coordinator = hass.data[DOMAIN].get(entry_id)
+            if coordinator:
+                await coordinator.async_set_screen(screen_index)
+        else:
+            # Set screen on all displays
+            for coordinator in hass.data[DOMAIN].values():
+                await coordinator.async_set_screen(screen_index)
+
+    async def handle_next_screen(call: ServiceCall) -> None:
+        """Handle next_screen service call."""
+        entry_id = call.data.get("entry_id")
+
+        if entry_id:
+            coordinator = hass.data[DOMAIN].get(entry_id)
+            if coordinator:
+                await coordinator.async_next_screen()
+        else:
+            # Next screen on all displays
+            for coordinator in hass.data[DOMAIN].values():
+                await coordinator.async_next_screen()
+
+    async def handle_previous_screen(call: ServiceCall) -> None:
+        """Handle previous_screen service call."""
+        entry_id = call.data.get("entry_id")
+
+        if entry_id:
+            coordinator = hass.data[DOMAIN].get(entry_id)
+            if coordinator:
+                await coordinator.async_previous_screen()
+        else:
+            # Previous screen on all displays
+            for coordinator in hass.data[DOMAIN].values():
+                await coordinator.async_previous_screen()
+
     hass.services.async_register(DOMAIN, "refresh", handle_refresh)
     hass.services.async_register(DOMAIN, "brightness", handle_brightness)
+    hass.services.async_register(DOMAIN, "set_screen", handle_set_screen)
+    hass.services.async_register(DOMAIN, "next_screen", handle_next_screen)
+    hass.services.async_register(DOMAIN, "previous_screen", handle_previous_screen)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
