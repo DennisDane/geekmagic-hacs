@@ -11,6 +11,29 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from PIL import Image
 
+# Import pytest-homeassistant-custom-component fixtures
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+from custom_components.geekmagic.const import DOMAIN
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(enable_custom_integrations):
+    """Enable custom integrations for all tests."""
+    return
+
+
+@pytest.fixture
+def mock_config_entry() -> MockConfigEntry:
+    """Create a mock config entry for GeekMagic."""
+    return MockConfigEntry(
+        domain=DOMAIN,
+        title="Test Display",
+        data={"host": "192.168.1.100", "name": "Test Display"},
+        options={},
+        entry_id="test_entry_123",
+    )
+
 
 @pytest.fixture
 def mock_device():

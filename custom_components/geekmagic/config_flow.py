@@ -90,15 +90,21 @@ class GeekMagicConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         config_entry: config_entries.ConfigEntry,
     ) -> GeekMagicOptionsFlow:
         """Get the options flow for this handler."""
-        return GeekMagicOptionsFlow(config_entry)
+        # Note: config_entry is passed by HA but the framework sets
+        # self.config_entry automatically on the flow before any step runs
+        return GeekMagicOptionsFlow()
 
 
 class GeekMagicOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for GeekMagic."""
 
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+    # Note: self.config_entry is a read-only property set by the OptionsFlow base class.
+    # The framework sets it automatically before calling any step methods.
+    # We do NOT set it in __init__ as that would fail with:
+    # AttributeError: property 'config_entry' of 'OptionsFlow' object has no setter
+
+    def __init__(self) -> None:
         """Initialize options flow."""
-        self.config_entry = config_entry
         self._options: dict[str, Any] = {}
         self._current_screen_index: int = 0
         self._current_slot: int = 0

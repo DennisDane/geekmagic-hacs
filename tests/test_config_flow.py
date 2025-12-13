@@ -2,13 +2,13 @@
 
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from homeassistant import config_entries
+from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.geekmagic.config_flow import (
     LAYOUT_OPTIONS,
@@ -23,6 +23,7 @@ from custom_components.geekmagic.const import (
     CONF_WIDGETS,
     DEFAULT_REFRESH_INTERVAL,
     DEFAULT_SCREEN_CYCLE_INTERVAL,
+    DOMAIN,
     LAYOUT_GRID_2X2,
 )
 
@@ -61,30 +62,88 @@ class TestConfigFlowImports:
         assert len(LAYOUT_OPTIONS) >= 4  # At least 4 layouts
 
 
+class TestConfigFlowUser:
+    """Test user config flow step using hass fixture."""
+
+    @pytest.mark.asyncio
+    async def test_user_flow_shows_form(self, hass):
+        """Test that user flow shows the configuration form."""
+        result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "user"
+        assert "host" in result["data_schema"].schema
+
+    @pytest.mark.asyncio
+    async def test_user_flow_connection_failure(self, hass):
+        """Test user flow handles connection failure."""
+        with (
+            patch(
+                "custom_components.geekmagic.config_flow.async_get_clientsession"
+            ) as mock_get_session,
+            patch("custom_components.geekmagic.config_flow.GeekMagicDevice") as mock_device_class,
+        ):
+            mock_get_session.return_value = AsyncMock()
+            mock_device = mock_device_class.return_value
+            mock_device.test_connection = AsyncMock(return_value=False)
+
+            result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"],
+                user_input={"host": "192.168.1.100", "name": "Test Display"},
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "cannot_connect"}
+
+        await hass.async_block_till_done()
+
+    @pytest.mark.asyncio
+    async def test_user_flow_success(self, hass):
+        """Test successful user flow creates entry."""
+        with (
+            patch(
+                "custom_components.geekmagic.config_flow.async_get_clientsession"
+            ) as mock_get_session,
+            patch("custom_components.geekmagic.config_flow.GeekMagicDevice") as mock_device_class,
+            # Mock the integration setup to prevent actual device connection
+            patch(
+                "custom_components.geekmagic.async_setup_entry",
+                return_value=True,
+            ),
+        ):
+            mock_get_session.return_value = AsyncMock()
+            mock_device = mock_device_class.return_value
+            mock_device.test_connection = AsyncMock(return_value=True)
+
+            result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+            result = await hass.config_entries.flow.async_configure(
+                result["flow_id"],
+                user_input={"host": "192.168.1.100", "name": "Test Display"},
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert result["title"] == "Test Display"
+            assert result["data"]["host"] == "192.168.1.100"
+
+        await hass.async_block_till_done()
+
+
 class TestOptionsFlowInit:
     """Test options flow initialization."""
 
-    @pytest.fixture
-    def mock_config_entry(self):
-        """Create a mock config entry."""
-        entry = MagicMock(spec=config_entries.ConfigEntry)
-        entry.options = {}
-        entry.data = {"host": "192.168.1.100", "name": "Test Display"}
-        return entry
-
-    def test_options_flow_init(self, mock_config_entry):
+    def test_options_flow_init(self):
         """Test GeekMagicOptionsFlow can be instantiated."""
-        flow = GeekMagicOptionsFlow(mock_config_entry)
+        flow = GeekMagicOptionsFlow()
 
         assert flow is not None
-        assert flow.config_entry == mock_config_entry
         assert flow._options == {}
         assert flow._current_screen_index == 0
         assert flow._current_slot == 0
 
-    def test_migrate_empty_options(self, mock_config_entry):
+    def test_migrate_empty_options(self):
         """Test migration handles empty options."""
-        flow = GeekMagicOptionsFlow(mock_config_entry)
+        flow = GeekMagicOptionsFlow()
         migrated = flow._migrate_options({})
 
         assert CONF_SCREENS in migrated
@@ -94,7 +153,7 @@ class TestOptionsFlowInit:
         assert migrated[CONF_REFRESH_INTERVAL] == DEFAULT_REFRESH_INTERVAL
         assert migrated[CONF_SCREEN_CYCLE_INTERVAL] == DEFAULT_SCREEN_CYCLE_INTERVAL
 
-    def test_migrate_existing_screens(self, mock_config_entry):
+    def test_migrate_existing_screens(self):
         """Test migration preserves existing screens."""
         existing = {
             CONF_SCREENS: [{"name": "Test", CONF_LAYOUT: LAYOUT_GRID_2X2, CONF_WIDGETS: []}],
@@ -102,14 +161,14 @@ class TestOptionsFlowInit:
             CONF_SCREEN_CYCLE_INTERVAL: 30,
         }
 
-        flow = GeekMagicOptionsFlow(mock_config_entry)
+        flow = GeekMagicOptionsFlow()
         migrated = flow._migrate_options(existing)
 
         assert migrated[CONF_SCREENS][0]["name"] == "Test"
         assert migrated[CONF_REFRESH_INTERVAL] == 15
         assert migrated[CONF_SCREEN_CYCLE_INTERVAL] == 30
 
-    def test_migrate_old_single_screen_format(self, mock_config_entry):
+    def test_migrate_old_single_screen_format(self):
         """Test migration handles old single-screen format."""
         old_format = {
             CONF_LAYOUT: LAYOUT_GRID_2X2,
@@ -117,7 +176,7 @@ class TestOptionsFlowInit:
             CONF_REFRESH_INTERVAL: 10,
         }
 
-        flow = GeekMagicOptionsFlow(mock_config_entry)
+        flow = GeekMagicOptionsFlow()
         migrated = flow._migrate_options(old_format)
 
         # Should be converted to multi-screen format
@@ -133,9 +192,7 @@ class TestSlotMatching:
     @pytest.fixture
     def options_flow(self):
         """Create an options flow instance."""
-        entry = MagicMock(spec=config_entries.ConfigEntry)
-        entry.options = {}
-        return GeekMagicOptionsFlow(entry)
+        return GeekMagicOptionsFlow()
 
     def test_slot_matching_at_slot_zero(self, options_flow):
         """Test slot matching works correctly when current_slot is 0.
@@ -189,9 +246,7 @@ class TestWidgetSchema:
     @pytest.fixture
     def options_flow(self):
         """Create an options flow instance."""
-        entry = MagicMock(spec=config_entries.ConfigEntry)
-        entry.options = {}
-        return GeekMagicOptionsFlow(entry)
+        return GeekMagicOptionsFlow()
 
     def test_clock_widget_schema(self, options_flow):
         """Test clock widget schema generation."""

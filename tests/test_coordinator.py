@@ -17,17 +17,8 @@ from custom_components.geekmagic.coordinator import GeekMagicCoordinator
 
 
 @pytest.fixture
-def mock_hass():
-    """Create mock Home Assistant instance."""
-    hass = MagicMock()
-    hass.states = MagicMock()
-    hass.states.get = MagicMock(return_value=None)
-    return hass
-
-
-@pytest.fixture
-def mock_device():
-    """Create mock GeekMagic device."""
+def coordinator_device():
+    """Create mock GeekMagic device for coordinator tests."""
     device = MagicMock()
     device.upload_and_display = AsyncMock()
     device.set_brightness = AsyncMock()
@@ -68,18 +59,18 @@ def new_format_options():
 class TestCoordinatorMigration:
     """Test options migration."""
 
-    def test_migrate_old_format(self, mock_hass, mock_device, old_format_options):
+    def test_migrate_old_format(self, hass, coordinator_device, old_format_options):
         """Test migrating old single-screen format."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, old_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, old_format_options)
 
         assert CONF_SCREENS in coordinator.options
         assert len(coordinator.options[CONF_SCREENS]) == 1
         assert coordinator.options[CONF_SCREENS][0][CONF_LAYOUT] == LAYOUT_GRID_2X2
         assert coordinator.options[CONF_REFRESH_INTERVAL] == 15
 
-    def test_already_migrated(self, mock_hass, mock_device, new_format_options):
+    def test_already_migrated(self, hass, coordinator_device, new_format_options):
         """Test that already-migrated options are unchanged."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
 
         assert coordinator.options[CONF_SCREEN_CYCLE_INTERVAL] == 30
         assert len(coordinator.options[CONF_SCREENS]) == 2
@@ -88,25 +79,25 @@ class TestCoordinatorMigration:
 class TestCoordinatorMultiScreen:
     """Test multi-screen functionality."""
 
-    def test_screen_count(self, mock_hass, mock_device, new_format_options):
+    def test_screen_count(self, hass, coordinator_device, new_format_options):
         """Test screen count property."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         assert coordinator.screen_count == 2
 
-    def test_current_screen_initial(self, mock_hass, mock_device, new_format_options):
+    def test_current_screen_initial(self, hass, coordinator_device, new_format_options):
         """Test initial current screen is 0."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         assert coordinator.current_screen == 0
 
-    def test_current_screen_name(self, mock_hass, mock_device, new_format_options):
+    def test_current_screen_name(self, hass, coordinator_device, new_format_options):
         """Test current screen name property."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         assert coordinator.current_screen_name == "Dashboard"
 
     @pytest.mark.asyncio
-    async def test_set_screen(self, mock_hass, mock_device, new_format_options):
+    async def test_set_screen(self, hass, coordinator_device, new_format_options):
         """Test setting screen by index."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         coordinator.async_request_refresh = AsyncMock()  # type: ignore[method-assign]
 
         await coordinator.async_set_screen(1)
@@ -114,18 +105,18 @@ class TestCoordinatorMultiScreen:
         assert coordinator.current_screen_name == "Media"
 
     @pytest.mark.asyncio
-    async def test_set_screen_invalid_index(self, mock_hass, mock_device, new_format_options):
+    async def test_set_screen_invalid_index(self, hass, coordinator_device, new_format_options):
         """Test setting invalid screen index is ignored."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         coordinator.async_request_refresh = AsyncMock()  # type: ignore[method-assign]
 
         await coordinator.async_set_screen(10)  # Invalid index
         assert coordinator.current_screen == 0  # Should remain unchanged
 
     @pytest.mark.asyncio
-    async def test_next_screen(self, mock_hass, mock_device, new_format_options):
+    async def test_next_screen(self, hass, coordinator_device, new_format_options):
         """Test cycling to next screen."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         coordinator.async_request_refresh = AsyncMock()  # type: ignore[method-assign]
 
         assert coordinator.current_screen == 0
@@ -135,9 +126,9 @@ class TestCoordinatorMultiScreen:
         assert coordinator.current_screen == 0  # Wraps around
 
     @pytest.mark.asyncio
-    async def test_previous_screen(self, mock_hass, mock_device, new_format_options):
+    async def test_previous_screen(self, hass, coordinator_device, new_format_options):
         """Test cycling to previous screen."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, new_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, new_format_options)
         coordinator.async_request_refresh = AsyncMock()  # type: ignore[method-assign]
 
         assert coordinator.current_screen == 0
@@ -148,9 +139,9 @@ class TestCoordinatorMultiScreen:
 class TestCoordinatorUpdateOptions:
     """Test options update functionality."""
 
-    def test_update_options_rebuilds_screens(self, mock_hass, mock_device, old_format_options):
+    def test_update_options_rebuilds_screens(self, hass, coordinator_device, old_format_options):
         """Test that updating options rebuilds screens."""
-        coordinator = GeekMagicCoordinator(mock_hass, mock_device, old_format_options)
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, old_format_options)
         assert coordinator.screen_count == 1
 
         # Update to multi-screen
@@ -171,7 +162,7 @@ class TestCoordinatorUpdateOptions:
 class TestCoordinatorWidgetRegistration:
     """Test that all widget types are registered."""
 
-    def test_all_widgets_registered(self, mock_hass, mock_device):
+    def test_all_widgets_registered(self):
         """Test that all 11 widget types are registered."""
         from custom_components.geekmagic.coordinator import WIDGET_CLASSES
 

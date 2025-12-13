@@ -46,14 +46,6 @@ def render_context(renderer, canvas, rect):
 
 
 @pytest.fixture
-def mock_hass():
-    """Create a mock Home Assistant instance."""
-    hass = MagicMock()
-    hass.states = MagicMock()
-    return hass
-
-
-@pytest.fixture
 def mock_entity_state():
     """Create a mock entity state."""
     state = MagicMock()
@@ -200,11 +192,16 @@ class TestEntityWidget:
         widget.render(ctx)
         assert img.size == (480, 480)
 
-    def test_render_with_entity(self, renderer, canvas, rect, mock_hass, mock_entity_state):
+    def test_render_with_entity(self, renderer, canvas, rect, hass, mock_entity_state):
         """Test rendering with entity state."""
         img, draw = canvas
         ctx = RenderContext(draw, rect, renderer)
-        mock_hass.states.get.return_value = mock_entity_state
+        # Set up the entity state in hass
+        hass.states.async_set(
+            "sensor.temperature",
+            "23.5",
+            {"friendly_name": "Temperature", "unit_of_measurement": "°C"},
+        )
 
         config = WidgetConfig(
             widget_type="entity",
@@ -212,7 +209,7 @@ class TestEntityWidget:
             entity_id="sensor.temperature",
         )
         widget = EntityWidget(config)
-        widget.render(ctx, hass=mock_hass)
+        widget.render(ctx, hass=hass)
         assert img.size == (480, 480)
 
 
@@ -230,14 +227,13 @@ class TestMediaWidget:
         assert widget.show_artist is True
         assert widget.show_progress is True
 
-    def test_render_idle(self, renderer, canvas, rect, mock_hass):
+    def test_render_idle(self, renderer, canvas, rect, hass):
         """Test rendering idle state."""
         img, draw = canvas
         ctx = RenderContext(draw, rect, renderer)
 
-        state = MagicMock()
-        state.state = "idle"
-        mock_hass.states.get.return_value = state
+        # Set up media player state in hass
+        hass.states.async_set("media_player.living_room", "idle", {})
 
         config = WidgetConfig(
             widget_type="media",
@@ -245,23 +241,25 @@ class TestMediaWidget:
             entity_id="media_player.living_room",
         )
         widget = MediaWidget(config)
-        widget.render(ctx, hass=mock_hass)
+        widget.render(ctx, hass=hass)
         assert img.size == (480, 480)
 
-    def test_render_playing(self, renderer, canvas, rect, mock_hass):
+    def test_render_playing(self, renderer, canvas, rect, hass):
         """Test rendering playing state."""
         img, draw = canvas
         ctx = RenderContext(draw, rect, renderer)
 
-        state = MagicMock()
-        state.state = "playing"
-        state.attributes = {
-            "media_title": "Test Song",
-            "media_artist": "Test Artist",
-            "media_position": 60,
-            "media_duration": 180,
-        }
-        mock_hass.states.get.return_value = state
+        # Set up media player state in hass
+        hass.states.async_set(
+            "media_player.living_room",
+            "playing",
+            {
+                "media_title": "Test Song",
+                "media_artist": "Test Artist",
+                "media_position": 60,
+                "media_duration": 180,
+            },
+        )
 
         config = WidgetConfig(
             widget_type="media",
@@ -269,7 +267,7 @@ class TestMediaWidget:
             entity_id="media_player.living_room",
         )
         widget = MediaWidget(config)
-        widget.render(ctx, hass=mock_hass)
+        widget.render(ctx, hass=hass)
         assert img.size == (480, 480)
 
     def test_format_time(self):
@@ -318,11 +316,16 @@ class TestChartWidget:
         widget.render(ctx)
         assert img.size == (480, 480)
 
-    def test_render_with_data(self, renderer, canvas, rect, mock_hass, mock_entity_state):
+    def test_render_with_data(self, renderer, canvas, rect, hass, mock_entity_state):
         """Test rendering with history data."""
         img, draw = canvas
         ctx = RenderContext(draw, rect, renderer)
-        mock_hass.states.get.return_value = mock_entity_state
+        # Set up the entity state in hass
+        hass.states.async_set(
+            "sensor.temperature",
+            "23.5",
+            {"friendly_name": "Temperature", "unit_of_measurement": "°C"},
+        )
 
         config = WidgetConfig(
             widget_type="chart",
@@ -331,7 +334,7 @@ class TestChartWidget:
         )
         widget = ChartWidget(config)
         widget.set_history([20.0, 21.5, 22.0, 21.0, 23.5, 24.0, 23.0])
-        widget.render(ctx, hass=mock_hass)
+        widget.render(ctx, hass=hass)
         assert img.size == (480, 480)
 
 
@@ -363,11 +366,16 @@ class TestTextWidget:
         widget.render(ctx)
         assert img.size == (480, 480)
 
-    def test_render_entity_text(self, renderer, canvas, rect, mock_hass, mock_entity_state):
+    def test_render_entity_text(self, renderer, canvas, rect, hass, mock_entity_state):
         """Test rendering entity state as text."""
         img, draw = canvas
         ctx = RenderContext(draw, rect, renderer)
-        mock_hass.states.get.return_value = mock_entity_state
+        # Set up the entity state in hass
+        hass.states.async_set(
+            "sensor.temperature",
+            "23.5",
+            {"friendly_name": "Temperature", "unit_of_measurement": "°C"},
+        )
 
         config = WidgetConfig(
             widget_type="text",
@@ -375,7 +383,7 @@ class TestTextWidget:
             entity_id="sensor.temperature",
         )
         widget = TextWidget(config)
-        widget.render(ctx, hass=mock_hass)
+        widget.render(ctx, hass=hass)
         assert img.size == (480, 480)
 
     def test_different_alignments(self, renderer, rect):
