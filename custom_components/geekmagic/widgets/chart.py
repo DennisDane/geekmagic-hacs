@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import contextlib
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from ..const import COLOR_CYAN, COLOR_GRAY
 from .base import Widget, WidgetConfig
@@ -21,10 +21,27 @@ class ChartWidget(Widget):
     as a timeline bar instead of a sparkline chart.
     """
 
+    # Map period strings to hours
+    PERIOD_TO_HOURS: ClassVar[dict[str, float]] = {
+        "5 min": 5 / 60,
+        "15 min": 15 / 60,
+        "1 hour": 1,
+        "6 hours": 6,
+        "24 hours": 24,
+    }
+
     def __init__(self, config: WidgetConfig) -> None:
         """Initialize the chart widget."""
         super().__init__(config)
-        self.hours = config.options.get("hours", 24)
+        # Support 'period' (string like "5 min") and legacy 'hours' (number)
+        period = config.options.get("period")
+        if period and isinstance(period, str):
+            self.hours = self.PERIOD_TO_HOURS.get(period, 24)
+        elif period and isinstance(period, int | float):
+            # Legacy numeric period in minutes
+            self.hours = period / 60
+        else:
+            self.hours = config.options.get("hours", 24)
         self.show_value = config.options.get("show_value", True)
         self.show_range = config.options.get("show_range", True)
         self.fill = config.options.get("fill", False)

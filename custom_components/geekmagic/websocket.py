@@ -103,12 +103,11 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "entity_domains": None,  # Any entity with numeric state
         "options": [
             {
-                "key": "hours",
-                "type": "number",
-                "label": "Hours of History",
-                "default": 24,
-                "min": 1,
-                "max": 168,
+                "key": "period",
+                "type": "select",
+                "label": "Period",
+                "options": ["5 min", "15 min", "1 hour", "6 hours", "24 hours"],
+                "default": "24 hours",
             },
             {
                 "key": "show_value",

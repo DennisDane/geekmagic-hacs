@@ -780,8 +780,10 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Recorder not available, charts will show no data")
             return
 
-        recorder = get_instance(self.hass)
-        if not recorder:
+        # get_instance() raises KeyError if recorder not available
+        try:
+            recorder = get_instance(self.hass)
+        except KeyError:
             _LOGGER.debug("Recorder instance not available")
             return
 
@@ -792,27 +794,24 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                 hours = widget.hours
                 start_time = now - timedelta(hours=hours)
 
-                # Fetch history from recorder using get_significant_states
-                # Parameters: hass, start_time, end_time, entity_ids, filters,
-                #            include_start_time_state, significant_changes_only,
-                #            minimal_response, no_attributes, compressed_state_format
+                # Use state_changes_during_period (like history_stats does)
+                # This is simpler and more reliable than get_significant_states
+                # Signature: hass, start_time, end_time, entity_id, no_attributes,
+                #            descending, limit, include_start_time_state
                 history = await recorder.async_add_executor_job(
-                    recorder_history.get_significant_states,
+                    recorder_history.state_changes_during_period,
                     self.hass,
                     start_time,
                     now,
-                    [entity_id],  # Must be a list
-                    None,  # filters
-                    True,  # include_start_time_state
-                    False,  # significant_changes_only
-                    True,  # minimal_response
+                    entity_id,  # Single string, not list
                     True,  # no_attributes
-                    False,  # compressed_state_format - False to get State objects
+                    False,  # descending
+                    None,  # limit
+                    True,  # include_start_time_state
                 )
 
                 if history and entity_id in history:
-                    # Extract numeric values from states
-                    # (handles both State objects and minimal_response dicts)
+                    # state_changes_during_period returns State objects
                     values = extract_numeric_values(history[entity_id])
 
                     if values:
