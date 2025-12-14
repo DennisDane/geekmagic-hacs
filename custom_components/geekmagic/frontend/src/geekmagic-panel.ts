@@ -78,33 +78,6 @@ export class GeekMagicPanel extends LitElement {
       margin-left: 8px;
     }
 
-    .header-tabs {
-      margin-left: auto;
-      display: flex;
-      gap: 4px;
-    }
-
-    .tab-button {
-      background: transparent;
-      border: none;
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      color: var(--secondary-text-color);
-      cursor: pointer;
-      border-radius: 4px;
-      transition: all 0.2s;
-    }
-
-    .tab-button:hover {
-      background: var(--secondary-background-color);
-    }
-
-    .tab-button.active {
-      color: var(--primary-color);
-      background: var(--primary-color-alpha, rgba(3, 169, 244, 0.1));
-    }
-
     .content {
       flex: 1;
       overflow: auto;
@@ -723,25 +696,27 @@ export class GeekMagicPanel extends LitElement {
       <div class="header">
         <ha-icon icon="mdi:monitor-dashboard"></ha-icon>
         <span class="header-title">GeekMagic</span>
-        ${this._page !== "editor"
-          ? html`
-              <div class="header-tabs">
-                <button
-                  class="tab-button ${this._page === "views" ? "active" : ""}"
-                  @click=${() => (this._page = "views")}
-                >
-                  Views
-                </button>
-                <button
-                  class="tab-button ${this._page === "devices" ? "active" : ""}"
-                  @click=${() => (this._page = "devices")}
-                >
-                  Devices
-                </button>
-              </div>
-            `
-          : nothing}
       </div>
+      ${this._page !== "editor"
+        ? html`
+            <ha-tab-group @wa-tab-show=${this._handleTabChange}>
+              <ha-tab-group-tab
+                slot="nav"
+                panel="views"
+                .active=${this._page === "views"}
+              >
+                Views
+              </ha-tab-group-tab>
+              <ha-tab-group-tab
+                slot="nav"
+                panel="devices"
+                .active=${this._page === "devices"}
+              >
+                Devices
+              </ha-tab-group-tab>
+            </ha-tab-group>
+          `
+        : nothing}
       <div class="content">${this._renderPage()}</div>
     `;
   }
@@ -754,6 +729,14 @@ export class GeekMagicPanel extends LitElement {
         return this._renderDevicesList();
       case "editor":
         return this._renderEditor();
+    }
+  }
+
+  private _handleTabChange(ev: CustomEvent) {
+    const tab = ev.target as HTMLElement;
+    const panel = tab.getAttribute("panel");
+    if (panel === "views" || panel === "devices") {
+      this._page = panel;
     }
   }
 
