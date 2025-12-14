@@ -86,7 +86,6 @@ custom_components/geekmagic/
 ├── button.py         # Re-export for HA platform discovery
 ├── sensor.py         # Re-export for HA platform discovery
 ├── manifest.json     # HACS metadata
-├── services.yaml     # Service definitions
 └── strings.json      # UI translations
 ```
 

@@ -226,16 +226,6 @@ Each GeekMagic device creates the following entities for control and monitoring:
 
 ---
 
-## Services
-
-| Service | Description |
-|---------|-------------|
-| `geekmagic.refresh` | Force immediate display update |
-| `geekmagic.brightness` | Set display brightness (0-100) |
-| `geekmagic.set_screen` | Switch to a specific screen by index |
-| `geekmagic.next_screen` | Switch to the next screen |
-| `geekmagic.previous_screen` | Switch to the previous screen |
-
 ## Device Compatibility
 
 Tested with:

@@ -6,7 +6,7 @@ import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
@@ -107,10 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Set up options update listener
     entry.async_on_unload(entry.add_update_listener(async_options_update_listener))
 
-    # Register services
-    await async_setup_services(hass)
-
-    # Set up platforms (camera)
+    # Set up platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     _LOGGER.info("GeekMagic integration successfully set up for %s", host)
@@ -154,57 +151,6 @@ async def async_options_update_listener(hass: HomeAssistant, entry: ConfigEntry)
     coordinator.update_options(dict(entry.options))
     # Trigger immediate refresh so device displays updated config
     await coordinator.async_request_refresh()
-
-
-async def async_setup_services(hass: HomeAssistant) -> None:
-    """Set up GeekMagic services.
-
-    Args:
-        hass: Home Assistant instance
-    """
-    # Skip if already registered
-    if hass.services.has_service(DOMAIN, "refresh"):
-        return
-
-    def _get_coordinators(entry_id: str | None) -> list[GeekMagicCoordinator]:
-        """Get coordinators for service call."""
-        if entry_id:
-            coord = hass.data[DOMAIN].get(entry_id)
-            return [coord] if coord and hasattr(coord, "device") else []
-        return [c for c in hass.data[DOMAIN].values() if hasattr(c, "device")]
-
-    async def handle_refresh(call: ServiceCall) -> None:
-        """Handle refresh service call."""
-        for coordinator in _get_coordinators(call.data.get("entry_id")):
-            await coordinator.async_refresh_display()
-
-    async def handle_brightness(call: ServiceCall) -> None:
-        """Handle brightness service call."""
-        brightness = call.data.get("brightness", 50)
-        for coordinator in _get_coordinators(call.data.get("entry_id")):
-            await coordinator.async_set_brightness(brightness)
-
-    async def handle_set_screen(call: ServiceCall) -> None:
-        """Handle set_screen service call."""
-        screen_index = call.data.get("screen_index", 0)
-        for coordinator in _get_coordinators(call.data.get("entry_id")):
-            await coordinator.async_set_screen(screen_index)
-
-    async def handle_next_screen(call: ServiceCall) -> None:
-        """Handle next_screen service call."""
-        for coordinator in _get_coordinators(call.data.get("entry_id")):
-            await coordinator.async_next_screen()
-
-    async def handle_previous_screen(call: ServiceCall) -> None:
-        """Handle previous_screen service call."""
-        for coordinator in _get_coordinators(call.data.get("entry_id")):
-            await coordinator.async_previous_screen()
-
-    hass.services.async_register(DOMAIN, "refresh", handle_refresh)
-    hass.services.async_register(DOMAIN, "brightness", handle_brightness)
-    hass.services.async_register(DOMAIN, "set_screen", handle_set_screen)
-    hass.services.async_register(DOMAIN, "next_screen", handle_next_screen)
-    hass.services.async_register(DOMAIN, "previous_screen", handle_previous_screen)
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
