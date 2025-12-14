@@ -746,7 +746,8 @@ export class GeekMagicPanel extends LitElement {
     const schema = this._config.widget_types[widgetType];
 
     // Debug logging
-    console.log(`Slot ${slot}: type="${widgetType}", schema=`, schema, "needs_entity=", schema?.needs_entity);
+    console.log(`Slot ${slot}: type="${widgetType}", widget=`, widget, "schema=", schema, "needs_entity=", schema?.needs_entity);
+    console.log(`  _editingView.widgets=`, this._editingView?.widgets);
 
     return html`
       <ha-card class="slot-card">
@@ -778,17 +779,20 @@ export class GeekMagicPanel extends LitElement {
           ${schema?.needs_entity
             ? html`
                 <div class="slot-field">
-                  <ha-entity-picker
+                  <ha-selector
                     .hass=${this.hass}
+                    .selector=${{
+                      entity: schema.entity_domains
+                        ? { domain: schema.entity_domains }
+                        : {},
+                    }}
                     .value=${widget?.entity_id || ""}
-                    .includeDomains=${schema.entity_domains || undefined}
                     .label=${"Entity"}
-                    allow-custom-entity
                     @value-changed=${(e: CustomEvent) =>
                       this._updateWidget(slot, {
                         entity_id: e.detail.value,
                       })}
-                  ></ha-entity-picker>
+                  ></ha-selector>
                 </div>
               `
             : nothing}
