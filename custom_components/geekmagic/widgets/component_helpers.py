@@ -69,6 +69,7 @@ def BarGauge(
     return Column(
         gap=6,
         padding=padding,
+        justify="center",
         children=[
             Adaptive(children=[c for c in header_children if c is not None], gap=6),
             Bar(percent=percent, color=color, background=background),
