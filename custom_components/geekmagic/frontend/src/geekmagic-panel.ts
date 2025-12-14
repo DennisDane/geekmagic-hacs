@@ -2,9 +2,10 @@
  * GeekMagic Panel - Main entry point
  *
  * Custom panel for configuring GeekMagic displays.
+ * Uses Home Assistant's Material Design components.
  */
 
-import { LitElement, html, css, nothing, PropertyValues } from "lit";
+import { LitElement, html, css, nothing } from "lit";
 import { customElement, property, state } from "lit/decorators.js";
 import type {
   HomeAssistant,
@@ -53,52 +54,35 @@ export class GeekMagicPanel extends LitElement {
       flex-direction: column;
       height: 100%;
       --mdc-theme-primary: var(--primary-color);
+      --mdc-theme-on-primary: var(--text-primary-color);
     }
 
+    /* Header */
     .header {
       display: flex;
       align-items: center;
-      padding: 8px 16px;
+      padding: 0 16px;
+      height: 56px;
       border-bottom: 1px solid var(--divider-color);
       background: var(--app-header-background-color);
     }
 
     .header-title {
-      flex: 1;
       font-size: 20px;
-      font-weight: 500;
-      margin-left: 16px;
+      font-weight: 400;
+      margin-left: 8px;
     }
 
-    .tabs {
-      display: flex;
-      gap: 8px;
+    .header-tabs {
       margin-left: auto;
-    }
-
-    .tab {
-      padding: 8px 16px;
-      border: none;
-      background: none;
-      cursor: pointer;
-      border-radius: 4px;
-      font-size: 14px;
-      color: var(--primary-text-color);
-    }
-
-    .tab:hover {
-      background: var(--secondary-background-color);
-    }
-
-    .tab.active {
-      background: var(--primary-color);
-      color: var(--text-primary-color);
+      --mdc-tab-text-label-color-default: var(--primary-text-color);
     }
 
     .content {
       flex: 1;
       overflow: auto;
       padding: 16px;
+      background: var(--primary-background-color);
     }
 
     .loading {
@@ -108,40 +92,44 @@ export class GeekMagicPanel extends LitElement {
       height: 100%;
     }
 
-    /* Views List */
+    /* Views Grid */
     .views-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 16px;
     }
 
+    ha-card {
+      --ha-card-border-radius: 12px;
+    }
+
     .view-card {
-      background: var(--card-background-color);
-      border-radius: 8px;
-      padding: 16px;
       cursor: pointer;
-      border: 1px solid var(--divider-color);
-      transition: box-shadow 0.2s;
     }
 
     .view-card:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      --ha-card-background: var(--secondary-background-color);
     }
 
-    .view-card-header {
+    .card-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 8px;
+      padding: 16px;
     }
 
-    .view-card-title {
+    .card-header h3 {
+      margin: 0;
       font-size: 16px;
       font-weight: 500;
     }
 
-    .view-card-meta {
-      font-size: 12px;
+    .card-content {
+      padding: 0 16px 16px;
+    }
+
+    .card-meta {
+      font-size: 14px;
       color: var(--secondary-text-color);
     }
 
@@ -149,11 +137,12 @@ export class GeekMagicPanel extends LitElement {
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100px;
+      min-height: 120px;
       border: 2px dashed var(--divider-color);
-      border-radius: 8px;
+      border-radius: 12px;
       cursor: pointer;
       color: var(--secondary-text-color);
+      transition: all 0.2s;
     }
 
     .add-card:hover {
@@ -161,11 +150,22 @@ export class GeekMagicPanel extends LitElement {
       color: var(--primary-color);
     }
 
-    /* Editor Layout */
+    /* Editor */
+    .editor-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .editor-header ha-textfield {
+      flex: 1;
+    }
+
     .editor-container {
       display: flex;
       gap: 24px;
-      height: 100%;
+      height: calc(100% - 80px);
     }
 
     .editor-form {
@@ -175,12 +175,19 @@ export class GeekMagicPanel extends LitElement {
 
     .editor-preview {
       flex: 3;
+      min-width: 280px;
+    }
+
+    .preview-card {
+      position: sticky;
+      top: 0;
+    }
+
+    .preview-card .card-content {
       display: flex;
       flex-direction: column;
       align-items: center;
       padding: 16px;
-      background: var(--secondary-background-color);
-      border-radius: 8px;
     }
 
     .preview-image {
@@ -195,157 +202,89 @@ export class GeekMagicPanel extends LitElement {
       width: 240px;
       height: 240px;
       border-radius: 8px;
-      background: #1a1a1a;
+      background: var(--secondary-background-color);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #666;
-    }
-
-    /* Form Elements */
-    .form-section {
-      margin-bottom: 24px;
-    }
-
-    .form-section-title {
-      font-size: 14px;
-      font-weight: 500;
-      margin-bottom: 8px;
       color: var(--secondary-text-color);
     }
 
+    /* Form Layout */
     .form-row {
       display: flex;
       gap: 16px;
       margin-bottom: 16px;
     }
 
-    .form-field {
+    .form-row > * {
       flex: 1;
     }
 
-    .form-field label {
-      display: block;
-      font-size: 12px;
-      margin-bottom: 4px;
-      color: var(--secondary-text-color);
-    }
-
-    .form-field input,
-    .form-field select {
-      width: 100%;
-      padding: 8px 12px;
-      border: 1px solid var(--divider-color);
-      border-radius: 4px;
-      background: var(--card-background-color);
-      color: var(--primary-text-color);
+    .section-title {
       font-size: 14px;
+      font-weight: 500;
+      color: var(--primary-text-color);
+      margin: 24px 0 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
-    .form-field input:focus,
-    .form-field select:focus {
-      outline: none;
-      border-color: var(--primary-color);
-    }
-
-    .form-field ha-entity-picker {
-      display: block;
-      width: 100%;
+    .section-title:first-child {
+      margin-top: 0;
     }
 
     /* Slots Grid */
     .slots-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
     }
 
     .slot-card {
-      background: var(--card-background-color);
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
+      --ha-card-border-radius: 8px;
+    }
+
+    .slot-card .card-content {
       padding: 16px;
     }
 
     .slot-header {
-      font-size: 14px;
       font-weight: 500;
-      margin-bottom: 12px;
+      margin-bottom: 16px;
       color: var(--primary-text-color);
     }
 
-    /* Buttons */
-    .btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-      transition: background 0.2s;
+    .slot-field {
+      margin-bottom: 16px;
     }
 
-    .btn-primary {
-      background: var(--primary-color);
-      color: var(--text-primary-color);
+    .slot-field:last-child {
+      margin-bottom: 0;
     }
 
-    .btn-primary:hover {
-      opacity: 0.9;
+    ha-select,
+    ha-textfield {
+      display: block;
+      width: 100%;
     }
 
-    .btn-primary:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    ha-entity-picker {
+      display: block;
+      width: 100%;
     }
 
-    .btn-secondary {
-      background: var(--secondary-background-color);
-      color: var(--primary-text-color);
-    }
-
-    .btn-secondary:hover {
-      background: var(--divider-color);
-    }
-
-    .btn-danger {
-      background: var(--error-color, #db4437);
-      color: white;
-    }
-
-    .editor-header {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-
-    .back-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 8px;
-      color: var(--primary-text-color);
-    }
-
-    /* Devices List */
+    /* Devices */
     .devices-list {
       display: flex;
       flex-direction: column;
       gap: 16px;
-    }
-
-    .device-card {
-      background: var(--card-background-color);
-      border: 1px solid var(--divider-color);
-      border-radius: 8px;
-      padding: 16px;
+      max-width: 800px;
     }
 
     .device-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      margin-bottom: 12px;
     }
 
     .device-name {
@@ -355,30 +294,46 @@ export class GeekMagicPanel extends LitElement {
 
     .device-status {
       font-size: 12px;
-      padding: 4px 8px;
-      border-radius: 4px;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-weight: 500;
     }
 
     .device-status.online {
-      background: #4caf50;
+      background: var(--success-color, #4caf50);
       color: white;
     }
 
     .device-status.offline {
-      background: #f44336;
+      background: var(--error-color, #f44336);
       color: white;
+    }
+
+    .views-checkboxes {
+      margin-top: 16px;
     }
 
     .view-checkbox {
       display: flex;
       align-items: center;
-      gap: 8px;
       padding: 8px 0;
     }
 
-    .view-checkbox input {
-      width: 18px;
-      height: 18px;
+    .view-checkbox ha-checkbox {
+      margin-right: 8px;
+    }
+
+    /* Empty states */
+    .empty-state {
+      text-align: center;
+      padding: 48px 16px;
+      color: var(--secondary-text-color);
+    }
+
+    .empty-state ha-icon {
+      --mdc-icon-size: 48px;
+      margin-bottom: 16px;
+      opacity: 0.5;
     }
   `;
 
@@ -389,7 +344,6 @@ export class GeekMagicPanel extends LitElement {
   private async _loadData(): Promise<void> {
     this._loading = true;
     try {
-      // Load config and views in parallel
       const [configResult, viewsResult, devicesResult] = await Promise.all([
         this.hass.connection.sendMessagePromise<GeekMagicConfig>({
           type: "geekmagic/config",
@@ -430,7 +384,6 @@ export class GeekMagicPanel extends LitElement {
       this._editView(result.view);
     } catch (err) {
       console.error("Failed to create view:", err);
-      alert("Failed to create view");
     }
   }
 
@@ -453,7 +406,6 @@ export class GeekMagicPanel extends LitElement {
         theme: this._editingView.theme,
         widgets: this._editingView.widgets,
       });
-      // Update local state
       this._views = this._views.map((v) =>
         v.id === this._editingView!.id ? this._editingView! : v
       );
@@ -461,7 +413,6 @@ export class GeekMagicPanel extends LitElement {
       this._editingView = null;
     } catch (err) {
       console.error("Failed to save view:", err);
-      alert("Failed to save view");
     } finally {
       this._saving = false;
     }
@@ -478,7 +429,6 @@ export class GeekMagicPanel extends LitElement {
       this._views = this._views.filter((v) => v.id !== view.id);
     } catch (err) {
       console.error("Failed to delete view:", err);
-      alert("Failed to delete view");
     }
   }
 
@@ -532,12 +482,9 @@ export class GeekMagicPanel extends LitElement {
     viewId: string,
     enabled: boolean
   ): Promise<void> {
-    let newViews: string[];
-    if (enabled) {
-      newViews = [...device.assigned_views, viewId];
-    } else {
-      newViews = device.assigned_views.filter((v) => v !== viewId);
-    }
+    const newViews = enabled
+      ? [...device.assigned_views, viewId]
+      : device.assigned_views.filter((v) => v !== viewId);
 
     try {
       await this.hass.connection.sendMessagePromise({
@@ -545,7 +492,6 @@ export class GeekMagicPanel extends LitElement {
         entry_id: device.entry_id,
         view_ids: newViews,
       });
-      // Update local state
       this._devices = this._devices.map((d) =>
         d.entry_id === device.entry_id ? { ...d, assigned_views: newViews } : d
       );
@@ -558,30 +504,26 @@ export class GeekMagicPanel extends LitElement {
     if (this._loading) {
       return html`
         <div class="loading">
-          <span>Loading...</span>
+          <ha-circular-progress indeterminate></ha-circular-progress>
         </div>
       `;
     }
 
     return html`
       <div class="header">
+        <ha-icon icon="mdi:monitor-dashboard"></ha-icon>
         <span class="header-title">GeekMagic</span>
         ${this._page !== "editor"
           ? html`
-              <div class="tabs">
-                <button
-                  class="tab ${this._page === "views" ? "active" : ""}"
-                  @click=${() => (this._page = "views")}
-                >
-                  Views
-                </button>
-                <button
-                  class="tab ${this._page === "devices" ? "active" : ""}"
-                  @click=${() => (this._page = "devices")}
-                >
-                  Devices
-                </button>
-              </div>
+              <mwc-tab-bar
+                class="header-tabs"
+                @MDCTabBar:activated=${(e: CustomEvent) => {
+                  this._page = e.detail.index === 0 ? "views" : "devices";
+                }}
+              >
+                <mwc-tab label="Views" ?active=${this._page === "views"}></mwc-tab>
+                <mwc-tab label="Devices" ?active=${this._page === "devices"}></mwc-tab>
+              </mwc-tab-bar>
             `
           : nothing}
       </div>
@@ -605,28 +547,30 @@ export class GeekMagicPanel extends LitElement {
       <div class="views-grid">
         ${this._views.map(
           (view) => html`
-            <div class="view-card" @click=${() => this._editView(view)}>
-              <div class="view-card-header">
-                <span class="view-card-title">${view.name}</span>
-                <button
-                  class="btn btn-danger"
+            <ha-card class="view-card" @click=${() => this._editView(view)}>
+              <div class="card-header">
+                <h3>${view.name}</h3>
+                <ha-icon-button
+                  .path=${"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"}
                   @click=${(e: Event) => {
                     e.stopPropagation();
                     this._deleteView(view);
                   }}
-                >
-                  Delete
-                </button>
+                ></ha-icon-button>
               </div>
-              <div class="view-card-meta">
-                Layout: ${view.layout} | Theme: ${view.theme} | Widgets:
-                ${view.widgets.length}
+              <div class="card-content">
+                <div class="card-meta">
+                  ${this._config?.layout_types[view.layout]?.name || view.layout}
+                  &bull; ${this._config?.themes[view.theme] || view.theme}
+                  &bull; ${view.widgets.length} widgets
+                </div>
               </div>
-            </div>
+            </ha-card>
           `
         )}
         <div class="add-card" @click=${this._createView}>
-          <span>+ Add View</span>
+          <ha-icon icon="mdi:plus"></ha-icon>
+          <span style="margin-left: 8px">Add View</span>
         </div>
       </div>
     `;
@@ -634,44 +578,52 @@ export class GeekMagicPanel extends LitElement {
 
   private _renderDevicesList() {
     if (this._devices.length === 0) {
-      return html`<p>No GeekMagic devices configured.</p>`;
+      return html`
+        <div class="empty-state">
+          <ha-icon icon="mdi:monitor-off"></ha-icon>
+          <p>No GeekMagic devices configured.</p>
+          <p>Add a device through Settings → Devices & Services.</p>
+        </div>
+      `;
     }
 
     return html`
       <div class="devices-list">
         ${this._devices.map(
           (device) => html`
-            <div class="device-card">
-              <div class="device-header">
-                <span class="device-name">${device.name}</span>
-                <span
-                  class="device-status ${device.online ? "online" : "offline"}"
-                >
-                  ${device.online ? "Online" : "Offline"}
-                </span>
+            <ha-card>
+              <div class="card-content" style="padding-top: 16px;">
+                <div class="device-header">
+                  <span class="device-name">${device.name}</span>
+                  <span class="device-status ${device.online ? "online" : "offline"}">
+                    ${device.online ? "Online" : "Offline"}
+                  </span>
+                </div>
+                <div class="views-checkboxes">
+                  <div class="section-title" style="margin-top: 8px;">Assigned Views</div>
+                  ${this._views.length === 0
+                    ? html`<p style="color: var(--secondary-text-color)">
+                        No views available. Create a view first.
+                      </p>`
+                    : this._views.map(
+                        (view) => html`
+                          <label class="view-checkbox">
+                            <ha-checkbox
+                              .checked=${device.assigned_views.includes(view.id)}
+                              @change=${(e: Event) =>
+                                this._toggleDeviceView(
+                                  device,
+                                  view.id,
+                                  (e.target as HTMLInputElement).checked
+                                )}
+                            ></ha-checkbox>
+                            ${view.name}
+                          </label>
+                        `
+                      )}
+                </div>
               </div>
-              <div class="form-section-title">Assigned Views</div>
-              ${this._views.map(
-                (view) => html`
-                  <label class="view-checkbox">
-                    <input
-                      type="checkbox"
-                      ?checked=${device.assigned_views.includes(view.id)}
-                      @change=${(e: Event) =>
-                        this._toggleDeviceView(
-                          device,
-                          view.id,
-                          (e.target as HTMLInputElement).checked
-                        )}
-                    />
-                    ${view.name}
-                  </label>
-                `
-              )}
-              ${this._views.length === 0
-                ? html`<p>No views available. Create a view first.</p>`
-                : nothing}
-            </div>
+            </ha-card>
           `
         )}
       </div>
@@ -686,96 +638,95 @@ export class GeekMagicPanel extends LitElement {
 
     return html`
       <div class="editor-header">
-        <button class="back-btn" @click=${() => (this._page = "views")}>
-          ← Back
-        </button>
-        <div class="form-field" style="flex: 1;">
-          <input
-            type="text"
-            .value=${this._editingView.name}
-            @input=${(e: Event) =>
-              this._updateEditingView({
-                name: (e.target as HTMLInputElement).value,
-              })}
-            placeholder="View name"
-          />
-        </div>
-        <button
-          class="btn btn-primary"
+        <ha-icon-button
+          .path=${"M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z"}
+          @click=${() => (this._page = "views")}
+        ></ha-icon-button>
+        <ha-textfield
+          .value=${this._editingView.name}
+          @input=${(e: Event) =>
+            this._updateEditingView({
+              name: (e.target as HTMLInputElement).value,
+            })}
+          placeholder="View name"
+        ></ha-textfield>
+        <ha-button
+          raised
           ?disabled=${this._saving}
           @click=${this._saveView}
         >
           ${this._saving ? "Saving..." : "Save"}
-        </button>
+        </ha-button>
       </div>
 
       <div class="editor-container">
         <div class="editor-form">
-          <div class="form-section">
-            <div class="form-row">
-              <div class="form-field">
-                <label>Layout</label>
-                <select
-                  .value=${this._editingView.layout}
-                  @change=${(e: Event) =>
-                    this._updateEditingView({
-                      layout: (e.target as HTMLSelectElement).value,
-                    })}
-                >
-                  ${Object.entries(this._config.layout_types).map(
-                    ([key, info]) =>
-                      html`<option value=${key}>
-                        ${info.name} (${info.slots} slots)
-                      </option>`
-                  )}
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Theme</label>
-                <select
-                  .value=${this._editingView.theme}
-                  @change=${(e: Event) =>
-                    this._updateEditingView({
-                      theme: (e.target as HTMLSelectElement).value,
-                    })}
-                >
-                  ${Object.entries(this._config.themes).map(
-                    ([key, name]) =>
-                      html`<option value=${key}>${name}</option>`
-                  )}
-                </select>
-              </div>
-            </div>
+          <div class="form-row">
+            <ha-select
+              label="Layout"
+              .value=${this._editingView.layout}
+              @selected=${(e: CustomEvent) => {
+                const select = e.target as HTMLElement & { value: string };
+                this._updateEditingView({ layout: select.value });
+              }}
+              @closed=${(e: Event) => e.stopPropagation()}
+            >
+              ${Object.entries(this._config.layout_types).map(
+                ([key, info]) => html`
+                  <mwc-list-item value=${key}>
+                    ${info.name} (${info.slots} slots)
+                  </mwc-list-item>
+                `
+              )}
+            </ha-select>
+            <ha-select
+              label="Theme"
+              .value=${this._editingView.theme}
+              @selected=${(e: CustomEvent) => {
+                const select = e.target as HTMLElement & { value: string };
+                this._updateEditingView({ theme: select.value });
+              }}
+              @closed=${(e: Event) => e.stopPropagation()}
+            >
+              ${Object.entries(this._config.themes).map(
+                ([key, name]) => html`
+                  <mwc-list-item value=${key}>${name}</mwc-list-item>
+                `
+              )}
+            </ha-select>
           </div>
 
-          <div class="form-section">
-            <div class="form-section-title">Widgets</div>
-            <div class="slots-grid">
-              ${Array.from({ length: slotCount }, (_, i) =>
-                this._renderSlotEditor(i)
-              )}
-            </div>
+          <div class="section-title">Widgets</div>
+          <div class="slots-grid">
+            ${Array.from({ length: slotCount }, (_, i) =>
+              this._renderSlotEditor(i)
+            )}
           </div>
         </div>
 
         <div class="editor-preview">
-          <h3>Preview</h3>
-          ${this._previewLoading
-            ? html`<div class="preview-placeholder">Loading...</div>`
-            : this._previewImage
-              ? html`<img
-                  class="preview-image"
-                  src="data:image/png;base64,${this._previewImage}"
-                  alt="Preview"
-                />`
-              : html`<div class="preview-placeholder">No preview</div>`}
-          <button
-            class="btn btn-secondary"
-            style="margin-top: 16px;"
-            @click=${() => this._refreshPreview()}
-          >
-            Refresh
-          </button>
+          <ha-card class="preview-card">
+            <div class="card-header">
+              <h3>Preview</h3>
+              <ha-icon-button
+                .path=${"M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"}
+                @click=${() => this._refreshPreview()}
+              ></ha-icon-button>
+            </div>
+            <div class="card-content">
+              ${this._previewLoading
+                ? html`<div class="preview-placeholder">
+                    <ha-circular-progress indeterminate></ha-circular-progress>
+                  </div>`
+                : this._previewImage
+                  ? html`<img
+                      class="preview-image"
+                      src="data:image/png;base64,${this._previewImage}"
+                      alt="Preview"
+                    />`
+                  : html`<div class="preview-placeholder">No preview</div>`}
+            </div>
+          </ha-card>
         </div>
       </div>
     `;
@@ -789,55 +740,59 @@ export class GeekMagicPanel extends LitElement {
     const schema = this._config.widget_types[widgetType];
 
     return html`
-      <div class="slot-card">
-        <div class="slot-header">Slot ${slot + 1}</div>
-        <div class="form-field">
-          <label>Widget Type</label>
-          <select
-            .value=${widgetType}
-            @change=${(e: Event) =>
-              this._updateWidget(slot, {
-                type: (e.target as HTMLSelectElement).value,
-              })}
-          >
-            <option value="">-- Empty --</option>
-            ${Object.entries(this._config.widget_types).map(
-              ([key, info]) => html`<option value=${key}>${info.name}</option>`
-            )}
-          </select>
-        </div>
+      <ha-card class="slot-card">
+        <div class="card-content">
+          <div class="slot-header">Slot ${slot + 1}</div>
 
-        ${schema?.needs_entity
-          ? html`
-              <div class="form-field">
-                <label>Entity</label>
-                <ha-entity-picker
-                  .hass=${this.hass}
-                  .value=${widget?.entity_id || ""}
-                  .includeDomains=${schema.entity_domains || undefined}
-                  allow-custom-entity
-                  @value-changed=${(e: CustomEvent) =>
-                    this._updateWidget(slot, {
-                      entity_id: e.detail.value,
-                    })}
-                ></ha-entity-picker>
-              </div>
-            `
-          : nothing}
+          <div class="slot-field">
+            <ha-select
+              label="Widget Type"
+              .value=${widgetType}
+              @selected=${(e: CustomEvent) => {
+                const select = e.target as HTMLElement & { value: string };
+                this._updateWidget(slot, { type: select.value });
+              }}
+              @closed=${(e: Event) => e.stopPropagation()}
+            >
+              <mwc-list-item value="">-- Empty --</mwc-list-item>
+              ${Object.entries(this._config.widget_types).map(
+                ([key, info]) => html`
+                  <mwc-list-item value=${key}>${info.name}</mwc-list-item>
+                `
+              )}
+            </ha-select>
+          </div>
 
-        <div class="form-field">
-          <label>Label (optional)</label>
-          <input
-            type="text"
-            .value=${widget?.label || ""}
-            @input=${(e: Event) =>
-              this._updateWidget(slot, {
-                label: (e.target as HTMLInputElement).value,
-              })}
-            placeholder="Custom label"
-          />
+          ${schema?.needs_entity
+            ? html`
+                <div class="slot-field">
+                  <ha-entity-picker
+                    .hass=${this.hass}
+                    .value=${widget?.entity_id || ""}
+                    .includeDomains=${schema.entity_domains || undefined}
+                    .label=${"Entity"}
+                    allow-custom-entity
+                    @value-changed=${(e: CustomEvent) =>
+                      this._updateWidget(slot, {
+                        entity_id: e.detail.value,
+                      })}
+                  ></ha-entity-picker>
+                </div>
+              `
+            : nothing}
+
+          <div class="slot-field">
+            <ha-textfield
+              label="Label (optional)"
+              .value=${widget?.label || ""}
+              @input=${(e: Event) =>
+                this._updateWidget(slot, {
+                  label: (e.target as HTMLInputElement).value,
+                })}
+            ></ha-textfield>
+          </div>
         </div>
-      </div>
+      </ha-card>
     `;
   }
 }
