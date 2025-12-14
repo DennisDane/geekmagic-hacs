@@ -185,7 +185,7 @@ export class GeekMagicPanel extends LitElement {
     }
 
     .editor-form {
-      max-width: 800px;
+      width: 100%;
     }
 
     /* Preview section - above widgets */
@@ -251,11 +251,19 @@ export class GeekMagicPanel extends LitElement {
       margin-top: 0;
     }
 
-    /* Slots list - simple responsive grid */
+    /* Slots list - fluid responsive grid */
     .slots-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 16px;
+      width: 100%;
+    }
+
+    /* Single column on mobile */
+    @media (max-width: 600px) {
+      .slots-grid {
+        grid-template-columns: 1fr;
+      }
     }
 
     .slot-card {
