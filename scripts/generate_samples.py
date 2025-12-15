@@ -29,7 +29,7 @@ from custom_components.geekmagic.const import (
 )
 from custom_components.geekmagic.layouts.grid import Grid2x2, Grid2x3, Grid3x2
 from custom_components.geekmagic.layouts.hero import HeroLayout
-from custom_components.geekmagic.layouts.split import SplitLayout
+from custom_components.geekmagic.layouts.split import SplitHorizontal, SplitVertical
 from custom_components.geekmagic.render_context import RenderContext
 from custom_components.geekmagic.renderer import Renderer
 from custom_components.geekmagic.widgets import (
@@ -269,9 +269,9 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
 
     # Layout configs: (suffix, layout_class, num_slots, padding, gap)
     layouts = [
-        ("1x1", None, 1, 8, 8),  # Single widget (use SplitLayout with ratio=1)
-        ("1x2", SplitLayout, 2, 8, 8),  # 2 horizontal
-        ("2x1", None, 2, 8, 8),  # 2 vertical (SplitLayout horizontal=True)
+        ("1x1", None, 1, 8, 8),  # Single widget
+        ("1x2", SplitHorizontal, 2, 8, 8),  # 2 side-by-side
+        ("2x1", SplitVertical, 2, 8, 8),  # 2 stacked
         ("2x2", Grid2x2, 4, 8, 8),
         ("2x3", Grid2x3, 6, 8, 8),
         ("3x2", Grid3x2, 6, 8, 8),  # 3 rows, 2 columns
@@ -286,14 +286,9 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
                 # Single widget using hero layout with minimal footer
                 layout = HeroLayout(footer_slots=1, hero_ratio=1.0, padding=padding, gap=gap)
                 layout.set_widget(0, make_widget(0))
-            elif layout_suffix == "1x2":
-                # 2 side-by-side
-                layout = SplitLayout(horizontal=False, ratio=0.5, padding=padding, gap=gap)
-                for i in range(2):
-                    layout.set_widget(i, make_widget(i))
-            elif layout_suffix == "2x1":
-                # 2 stacked vertically
-                layout = SplitLayout(horizontal=True, ratio=0.5, padding=padding, gap=gap)
+            elif layout_class is not None and num_slots == 2:
+                # Split layouts
+                layout = layout_class(ratio=0.5, padding=padding, gap=gap)
                 for i in range(2):
                     layout.set_widget(i, make_widget(i))
             else:
@@ -1000,7 +995,7 @@ def generate_security(renderer: Renderer, output_dir: Path) -> None:
     hass = MockHass()
     create_security_states(hass)
 
-    layout = SplitLayout(horizontal=True, ratio=0.5, padding=8, gap=8)
+    layout = SplitVertical(ratio=0.5, padding=8, gap=8)
     img, draw = renderer.create_canvas()
 
     # Top: Door status list

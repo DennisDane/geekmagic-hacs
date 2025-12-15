@@ -11,7 +11,11 @@ import pytest
 from custom_components.geekmagic.layouts.base import Slot
 from custom_components.geekmagic.layouts.grid import Grid2x2, Grid2x3, Grid3x3, GridLayout
 from custom_components.geekmagic.layouts.hero import HeroLayout
-from custom_components.geekmagic.layouts.split import SplitLayout, ThreeColumnLayout
+from custom_components.geekmagic.layouts.split import (
+    SplitHorizontal,
+    SplitVertical,
+    ThreeColumnLayout,
+)
 from custom_components.geekmagic.renderer import Renderer
 from custom_components.geekmagic.widgets.base import WidgetConfig
 from custom_components.geekmagic.widgets.clock import ClockWidget
@@ -193,23 +197,31 @@ class TestHeroLayout:
 
 
 class TestSplitLayout:
-    """Tests for SplitLayout."""
+    """Tests for SplitHorizontal and SplitVertical."""
 
-    def test_init_vertical(self):
-        """Test vertical split (left/right)."""
-        layout = SplitLayout(horizontal=False)
+    def test_horizontal_split(self):
+        """Test horizontal split (side by side)."""
+        layout = SplitHorizontal()
         assert layout.get_slot_count() == 2
-        assert layout.horizontal is False
+        # Left and right slots should have same height but different x positions
+        left = layout.slots[0].rect
+        right = layout.slots[1].rect
+        assert left[1] == right[1]  # Same top
+        assert left[3] == right[3]  # Same bottom
 
-    def test_init_horizontal(self):
-        """Test horizontal split (top/bottom)."""
-        layout = SplitLayout(horizontal=True)
+    def test_vertical_split(self):
+        """Test vertical split (stacked)."""
+        layout = SplitVertical()
         assert layout.get_slot_count() == 2
-        assert layout.horizontal is True
+        # Top and bottom slots should have same width but different y positions
+        top = layout.slots[0].rect
+        bottom = layout.slots[1].rect
+        assert top[0] == bottom[0]  # Same left
+        assert top[2] == bottom[2]  # Same right
 
     def test_ratio_50_50(self):
         """Test 50/50 split."""
-        layout = SplitLayout(ratio=0.5)
+        layout = SplitHorizontal(ratio=0.5)
         left = layout.slots[0].rect
         right = layout.slots[1].rect
 
@@ -221,15 +233,15 @@ class TestSplitLayout:
 
     def test_ratio_clamped(self):
         """Test that ratio is clamped to reasonable values."""
-        layout = SplitLayout(ratio=0.1)  # Too small
+        layout = SplitHorizontal(ratio=0.1)  # Too small
         assert layout.ratio == 0.2
 
-        layout = SplitLayout(ratio=0.95)  # Too large
+        layout = SplitHorizontal(ratio=0.95)  # Too large
         assert layout.ratio == 0.8
 
     def test_slots_within_display(self):
         """Test all slots within display bounds."""
-        layout = SplitLayout()
+        layout = SplitHorizontal()
         for slot in layout.slots:
             x1, y1, x2, y2 = slot.rect
             assert x1 >= 0 and y1 >= 0
@@ -238,7 +250,7 @@ class TestSplitLayout:
     def test_render(self, renderer, canvas):
         """Test rendering split layout."""
         img, draw = canvas
-        layout = SplitLayout()
+        layout = SplitHorizontal()
 
         config = WidgetConfig(widget_type="clock", slot=0)
         widget = ClockWidget(config)

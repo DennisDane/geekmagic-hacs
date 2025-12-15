@@ -58,7 +58,8 @@ LAYOUT_GRID_2X3 = "grid_2x3"
 LAYOUT_GRID_3X2 = "grid_3x2"
 LAYOUT_GRID_3X3 = "grid_3x3"
 LAYOUT_HERO = "hero"
-LAYOUT_SPLIT = "split"
+LAYOUT_SPLIT_H = "split_horizontal"  # Side by side (left/right)
+LAYOUT_SPLIT_V = "split_vertical"  # Stacked (top/bottom)
 LAYOUT_THREE_COLUMN = "three_column"
 
 # Widget types
@@ -82,7 +83,8 @@ LAYOUT_SLOT_COUNTS = {
     LAYOUT_GRID_3X2: 6,
     LAYOUT_GRID_3X3: 9,
     LAYOUT_HERO: 4,
-    LAYOUT_SPLIT: 2,
+    LAYOUT_SPLIT_H: 2,
+    LAYOUT_SPLIT_V: 2,
     LAYOUT_THREE_COLUMN: 3,
 }
 

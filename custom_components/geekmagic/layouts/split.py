@@ -5,18 +5,71 @@ from __future__ import annotations
 from .base import Layout, Slot
 
 
-class SplitLayout(Layout):
-    """Layout with vertical or horizontal split panels.
+class SplitHorizontal(Layout):
+    """Horizontal split layout - side by side (left/right).
 
-    Vertical split:
     +----------+----------+
     |          |          |
     |  LEFT    |  RIGHT   |
     | (slot 0) | (slot 1) |
     |          |          |
     +----------+----------+
+    """
 
-    Horizontal split:
+    def __init__(
+        self,
+        ratio: float = 0.5,
+        padding: int = 8,
+        gap: int = 8,
+    ) -> None:
+        """Initialize horizontal split layout.
+
+        Args:
+            ratio: Ratio of left panel width (0.0-1.0)
+            padding: Padding around edges
+            gap: Gap between panels
+        """
+        self.ratio = max(0.2, min(0.8, ratio))
+        super().__init__(padding=padding, gap=gap)
+
+    def _calculate_slots(self) -> None:
+        """Calculate left/right panel rectangles."""
+        self.slots = []
+
+        available_width, _ = self._available_space()
+        content_width = available_width - self.gap
+        left_width = int(content_width * self.ratio)
+
+        # Left slot
+        self.slots.append(
+            Slot(
+                index=0,
+                rect=(
+                    self.padding,
+                    self.padding,
+                    self.padding + left_width,
+                    self.height - self.padding,
+                ),
+            )
+        )
+
+        # Right slot
+        self.slots.append(
+            Slot(
+                index=1,
+                rect=(
+                    self.padding + left_width + self.gap,
+                    self.padding,
+                    self.width - self.padding,
+                    self.height - self.padding,
+                ),
+            )
+        )
+
+
+class SplitVertical(Layout):
+    """Vertical split layout - stacked (top/bottom).
+
     +---------------------+
     |        TOP          |
     |      (slot 0)       |
@@ -28,92 +81,57 @@ class SplitLayout(Layout):
 
     def __init__(
         self,
-        horizontal: bool = False,
         ratio: float = 0.5,
         padding: int = 8,
         gap: int = 8,
     ) -> None:
-        """Initialize split layout.
+        """Initialize vertical split layout.
 
         Args:
-            horizontal: If True, split horizontally (top/bottom)
-            ratio: Ratio of first panel (0.0-1.0)
+            ratio: Ratio of top panel height (0.0-1.0)
             padding: Padding around edges
             gap: Gap between panels
         """
-        self.horizontal = horizontal
-        self.ratio = max(0.2, min(0.8, ratio))  # Clamp to reasonable range
+        self.ratio = max(0.2, min(0.8, ratio))
         super().__init__(padding=padding, gap=gap)
 
     def _calculate_slots(self) -> None:
-        """Calculate split panel rectangles."""
+        """Calculate top/bottom panel rectangles."""
         self.slots = []
 
-        # Use base class helper for available space
-        available_width, available_height = self._available_space()
+        _, available_height = self._available_space()
+        content_height = available_height - self.gap
+        top_height = int(content_height * self.ratio)
 
-        if self.horizontal:
-            # Top/bottom split
-            # Content height is available minus the gap between panels
-            content_height = available_height - self.gap
-            top_height = int(content_height * self.ratio)
-
-            # Top slot
-            self.slots.append(
-                Slot(
-                    index=0,
-                    rect=(
-                        self.padding,
-                        self.padding,
-                        self.width - self.padding,
-                        self.padding + top_height,
-                    ),
-                )
+        # Top slot
+        self.slots.append(
+            Slot(
+                index=0,
+                rect=(
+                    self.padding,
+                    self.padding,
+                    self.width - self.padding,
+                    self.padding + top_height,
+                ),
             )
+        )
 
-            # Bottom slot
-            self.slots.append(
-                Slot(
-                    index=1,
-                    rect=(
-                        self.padding,
-                        self.padding + top_height + self.gap,
-                        self.width - self.padding,
-                        self.height - self.padding,
-                    ),
-                )
+        # Bottom slot
+        self.slots.append(
+            Slot(
+                index=1,
+                rect=(
+                    self.padding,
+                    self.padding + top_height + self.gap,
+                    self.width - self.padding,
+                    self.height - self.padding,
+                ),
             )
-        else:
-            # Left/right split
-            # Content width is available minus the gap between panels
-            content_width = available_width - self.gap
-            left_width = int(content_width * self.ratio)
+        )
 
-            # Left slot
-            self.slots.append(
-                Slot(
-                    index=0,
-                    rect=(
-                        self.padding,
-                        self.padding,
-                        self.padding + left_width,
-                        self.height - self.padding,
-                    ),
-                )
-            )
 
-            # Right slot
-            self.slots.append(
-                Slot(
-                    index=1,
-                    rect=(
-                        self.padding + left_width + self.gap,
-                        self.padding,
-                        self.width - self.padding,
-                        self.height - self.padding,
-                    ),
-                )
-            )
+# Keep for backwards compatibility
+SplitLayout = SplitHorizontal
 
 
 class ThreeColumnLayout(Layout):

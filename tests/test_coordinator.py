@@ -11,7 +11,7 @@ from custom_components.geekmagic.const import (
     CONF_SCREENS,
     CONF_WIDGETS,
     LAYOUT_GRID_2X2,
-    LAYOUT_SPLIT,
+    LAYOUT_SPLIT_H,
 )
 from custom_components.geekmagic.coordinator import GeekMagicCoordinator
 
@@ -49,7 +49,7 @@ def new_format_options():
             },
             {
                 "name": "Media",
-                CONF_LAYOUT: LAYOUT_SPLIT,
+                CONF_LAYOUT: LAYOUT_SPLIT_H,
                 CONF_WIDGETS: [{"type": "clock", "slot": 0}],
             },
         ],
@@ -150,7 +150,7 @@ class TestCoordinatorUpdateOptions:
             CONF_SCREEN_CYCLE_INTERVAL: 0,
             CONF_SCREENS: [
                 {"name": "Screen 1", CONF_LAYOUT: LAYOUT_GRID_2X2, CONF_WIDGETS: []},
-                {"name": "Screen 2", CONF_LAYOUT: LAYOUT_SPLIT, CONF_WIDGETS: []},
+                {"name": "Screen 2", CONF_LAYOUT: LAYOUT_SPLIT_H, CONF_WIDGETS: []},
                 {"name": "Screen 3", CONF_LAYOUT: LAYOUT_GRID_2X2, CONF_WIDGETS: []},
             ],
         }

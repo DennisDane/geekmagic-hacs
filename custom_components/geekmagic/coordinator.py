@@ -31,14 +31,15 @@ from .const import (
     LAYOUT_GRID_3X2,
     LAYOUT_GRID_3X3,
     LAYOUT_HERO,
-    LAYOUT_SPLIT,
+    LAYOUT_SPLIT_H,
+    LAYOUT_SPLIT_V,
     LAYOUT_THREE_COLUMN,
     THEME_CLASSIC,
 )
 from .device import DeviceState, GeekMagicDevice, SpaceInfo
 from .layouts.grid import Grid2x2, Grid2x3, Grid3x2, Grid3x3
 from .layouts.hero import HeroLayout
-from .layouts.split import SplitLayout, ThreeColumnLayout
+from .layouts.split import SplitHorizontal, SplitVertical, ThreeColumnLayout
 from .renderer import Renderer
 from .widgets.base import WidgetConfig
 from .widgets.camera import CameraWidget
@@ -68,7 +69,8 @@ LAYOUT_CLASSES = {
     LAYOUT_GRID_3X2: Grid3x2,
     LAYOUT_GRID_3X3: Grid3x3,
     LAYOUT_HERO: HeroLayout,
-    LAYOUT_SPLIT: SplitLayout,
+    LAYOUT_SPLIT_H: SplitHorizontal,
+    LAYOUT_SPLIT_V: SplitVertical,
     LAYOUT_THREE_COLUMN: ThreeColumnLayout,
 }
 

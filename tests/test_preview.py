@@ -4,7 +4,7 @@ from custom_components.geekmagic.const import (
     CONF_LAYOUT,
     CONF_WIDGETS,
     LAYOUT_GRID_2X2,
-    LAYOUT_SPLIT,
+    LAYOUT_SPLIT_H,
 )
 from custom_components.geekmagic.preview import (
     MockHass,
@@ -141,7 +141,7 @@ class TestRenderPreview:
         assert isinstance(result_grid, bytes)
 
         # Test Split
-        result_split = render_preview(LAYOUT_SPLIT, widgets_config)
+        result_split = render_preview(LAYOUT_SPLIT_H, widgets_config)
         assert isinstance(result_split, bytes)
 
     def test_render_empty_widgets(self):

@@ -24,7 +24,11 @@ from custom_components.geekmagic.const import (
 )
 from custom_components.geekmagic.layouts.grid import Grid2x2, Grid2x3, Grid3x2, Grid3x3
 from custom_components.geekmagic.layouts.hero import HeroLayout
-from custom_components.geekmagic.layouts.split import SplitLayout, ThreeColumnLayout
+from custom_components.geekmagic.layouts.split import (
+    SplitHorizontal,
+    SplitVertical,
+    ThreeColumnLayout,
+)
 from custom_components.geekmagic.renderer import Renderer
 from custom_components.geekmagic.widgets import (
     ChartWidget,
@@ -415,10 +419,10 @@ def generate_hero(renderer: Renderer, output_dir: Path) -> None:
     save_layout(renderer, img, "hero", output_dir)
 
 
-def generate_split_vertical(renderer: Renderer, output_dir: Path) -> None:
-    """Generate Split Vertical layout sample (left/right)."""
+def generate_split_horizontal(renderer: Renderer, output_dir: Path) -> None:
+    """Generate Split Horizontal layout sample (side by side)."""
     hass = create_mock_hass()
-    layout = SplitLayout(horizontal=False, ratio=0.5, padding=8, gap=8)
+    layout = SplitHorizontal(ratio=0.5, padding=8, gap=8)
     img, draw = renderer.create_canvas()
 
     # Clock on left
@@ -441,13 +445,13 @@ def generate_split_vertical(renderer: Renderer, output_dir: Path) -> None:
     layout.set_widget(1, gauge)
 
     layout.render(renderer, draw, hass)  # type: ignore[arg-type]
-    save_layout(renderer, img, "split_vertical", output_dir)
+    save_layout(renderer, img, "split_horizontal", output_dir)
 
 
-def generate_split_horizontal(renderer: Renderer, output_dir: Path) -> None:
-    """Generate Split Horizontal layout sample (top/bottom)."""
+def generate_split_vertical(renderer: Renderer, output_dir: Path) -> None:
+    """Generate Split Vertical layout sample (stacked)."""
     hass = create_mock_hass()
-    layout = SplitLayout(horizontal=True, ratio=0.5, padding=8, gap=8)
+    layout = SplitVertical(ratio=0.5, padding=8, gap=8)
     img, draw = renderer.create_canvas()
 
     # Clock on top
@@ -477,7 +481,7 @@ def generate_split_horizontal(renderer: Renderer, output_dir: Path) -> None:
     layout.set_widget(1, status)
 
     layout.render(renderer, draw, hass)  # type: ignore[arg-type]
-    save_layout(renderer, img, "split_horizontal", output_dir)
+    save_layout(renderer, img, "split_vertical", output_dir)
 
 
 def generate_three_column(renderer: Renderer, output_dir: Path) -> None:
