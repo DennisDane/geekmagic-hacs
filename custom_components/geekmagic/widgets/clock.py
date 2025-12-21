@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ..const import COLOR_WHITE
 from .base import Widget, WidgetConfig
 from .components import THEME_TEXT_PRIMARY, THEME_TEXT_SECONDARY, Color, Component
 
@@ -176,7 +175,7 @@ class ClockWidget(Widget):
             ampm = None
 
         date_str = now.strftime("%a, %b %d") if self.show_date else None
-        color = self.config.color or COLOR_WHITE
+        color = self.config.color or THEME_TEXT_PRIMARY
 
         return ClockDisplay(
             time_str=time_str,

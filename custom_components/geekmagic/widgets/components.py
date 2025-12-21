@@ -5,11 +5,11 @@ declare WHAT to show (component trees) and the layout system figures out
 HOW to arrange it.
 
 Example usage:
-    def render(self, ctx, hass) -> Component:
+    def render(self, ctx, state) -> Component:
         return Column(children=[
-            Text("75%", font="medium", bold=True),
+            Text("75%", font="medium", bold=True),  # Uses THEME_TEXT_PRIMARY by default
             Bar(percent=75, color=COLOR_CYAN),
-            Text("CPU", font="tiny", color=COLOR_GRAY),
+            Text("CPU", font="tiny", color=THEME_TEXT_SECONDARY),
         ])
 """
 
