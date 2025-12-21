@@ -204,6 +204,46 @@ class TestGeekMagicDevice:
         mock_session.post.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_upload_ignores_duplicate_content_length_error(self, mock_session):
+        """Test upload ignores malformed HTTP with duplicate Content-Length."""
+        import aiohttp
+
+        device = GeekMagicDevice("192.168.1.100", session=mock_session)
+        image_data = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+
+        # Simulate the error from SmallTV-Ultra firmware
+        error = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=400,
+            message="Duplicate Content-Length header",
+        )
+        mock_session.post.return_value.__aenter__.side_effect = error
+
+        # Should not raise - error is ignored
+        await device.upload(image_data, "test.jpg")
+
+    @pytest.mark.asyncio
+    async def test_upload_ignores_data_after_close_error(self, mock_session):
+        """Test upload ignores malformed HTTP with data after Connection: close."""
+        import aiohttp
+
+        device = GeekMagicDevice("192.168.1.100", session=mock_session)
+        image_data = b"\xff\xd8\xff\xe0" + b"\x00" * 100
+
+        # Simulate the error from SmallTV-Pro firmware
+        error = aiohttp.ClientResponseError(
+            request_info=MagicMock(),
+            history=(),
+            status=400,
+            message="Data after `Connection: close`",
+        )
+        mock_session.post.return_value.__aenter__.side_effect = error
+
+        # Should not raise - error is ignored
+        await device.upload(image_data, "test.jpg")
+
+    @pytest.mark.asyncio
     async def test_upload_and_display(self, mock_session, mock_response):
         """Test uploading and displaying an image."""
         device = GeekMagicDevice("192.168.1.100", session=mock_session)

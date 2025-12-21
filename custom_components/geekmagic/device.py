@@ -212,10 +212,16 @@ class GeekMagicDevice:
             ) as response:
                 response.raise_for_status()
         except aiohttp.ClientResponseError as e:
-            # Device returns malformed HTTP (duplicate Content-Length headers)
-            # but upload still succeeds, so ignore 400 errors from parsing
-            if e.status != 400 or "Duplicate Content-Length" not in str(e.message):
-                raise
+            # Device firmware returns malformed HTTP responses, but upload succeeds.
+            # Known issues:
+            # - SmallTV-Ultra: Duplicate Content-Length headers
+            # - SmallTV-Pro: "Data after Connection: close" (sends OK + new response)
+            if e.status == 400:
+                msg = str(e.message) if e.message else ""
+                if "Duplicate Content-Length" in msg or "Data after" in msg:
+                    _LOGGER.debug("Ignoring malformed HTTP response from device: %s", msg)
+                    return
+            raise
 
         _LOGGER.debug("Uploaded %s (%d bytes)", filename, len(image_data))
 
