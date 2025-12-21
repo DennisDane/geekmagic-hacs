@@ -5,12 +5,20 @@ from __future__ import annotations
 
 import random
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from PIL import Image
+
+from custom_components.geekmagic.widgets.state import EntityState, WidgetState
+
+if TYPE_CHECKING:
+    from custom_components.geekmagic.layouts.base import Layout
+    from scripts.mock_hass import MockHass
 
 from custom_components.geekmagic.const import (
     COLOR_CYAN,
@@ -43,6 +51,59 @@ from custom_components.geekmagic.widgets import (
 )
 from custom_components.geekmagic.widgets.theme import THEMES
 from scripts.mock_hass import MockHass
+
+
+def build_widget_states(
+    layout: Layout,
+    hass: MockHass,
+    chart_history: dict[int, list[float]] | None = None,
+) -> dict[int, WidgetState]:
+    """Build WidgetState dict for all widgets in a layout."""
+    widget_states: dict[int, WidgetState] = {}
+    chart_history = chart_history or {}
+
+    for slot in layout.slots:
+        if slot.widget is None:
+            continue
+
+        widget = slot.widget
+        entity_id = widget.config.entity_id
+        entity: EntityState | None = None
+        if entity_id:
+            state = hass.states.get(entity_id)
+            if state:
+                entity = EntityState(
+                    entity_id=entity_id,
+                    state=state.state,
+                    attributes=state.attributes,
+                )
+
+        entities: dict[str, EntityState] = {}
+        try:
+            entity_ids = widget.get_entities()
+            for eid in entity_ids:
+                if eid and eid != entity_id:
+                    state = hass.states.get(eid)
+                    if state:
+                        entities[eid] = EntityState(
+                            entity_id=eid,
+                            state=state.state,
+                            attributes=state.attributes,
+                        )
+        except AttributeError:
+            pass
+
+        history: list[float] = chart_history.get(slot.index, [])
+
+        widget_states[slot.index] = WidgetState(
+            entity=entity,
+            entities=entities,
+            history=history,
+            image=None,
+            now=datetime.now(tz=UTC),
+        )
+
+    return widget_states
 
 
 def save_layout(renderer: Renderer, img: Image.Image, name: str, output_dir: Path) -> None:
@@ -151,7 +212,7 @@ def generate_grid_2x2(renderer: Renderer, output_dir: Path) -> None:
     for i, w in enumerate(widgets):
         layout.set_widget(i, w)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "grid_2x2", output_dir)
 
 
@@ -234,7 +295,7 @@ def generate_grid_2x3(renderer: Renderer, output_dir: Path) -> None:
     for i, w in enumerate(widgets):
         layout.set_widget(i, w)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "grid_2x3", output_dir)
 
 
@@ -325,13 +386,15 @@ def generate_grid_3x2(renderer: Renderer, output_dir: Path) -> None:
         )
     )
     rng = random.Random(100)  # noqa: S311
-    chart.set_history([1.5 + rng.uniform(-0.5, 1.5) for _ in range(24)])
+    chart_history: dict[int, list[float]] = {
+        5: [1.5 + rng.uniform(-0.5, 1.5) for _ in range(24)],
+    }
     widgets.append(chart)
 
     for i, w in enumerate(widgets):
         layout.set_widget(i, w)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass, chart_history))
     save_layout(renderer, img, "grid_3x2", output_dir)
 
 
@@ -375,7 +438,7 @@ def generate_grid_3x3(renderer: Renderer, output_dir: Path) -> None:
         )
         layout.set_widget(i, widget)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "grid_3x3", output_dir)
 
 
@@ -415,7 +478,7 @@ def generate_hero(renderer: Renderer, output_dir: Path) -> None:
         )
         layout.set_widget(i + 1, widget)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "hero", output_dir)
 
 
@@ -444,7 +507,7 @@ def generate_split_horizontal(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(1, gauge)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "split_horizontal", output_dir)
 
 
@@ -480,7 +543,7 @@ def generate_split_vertical(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(1, status)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "split_vertical", output_dir)
 
 
@@ -537,7 +600,7 @@ def generate_three_column(renderer: Renderer, output_dir: Path) -> None:
     for i, w in enumerate(widgets):
         layout.set_widget(i, w)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_layout(renderer, img, "three_column", output_dir)
 
 
@@ -633,6 +696,8 @@ def generate_theme_samples(renderer: Renderer, output_dir: Path) -> None:
         accent_colors = theme.accent_colors
         configs = theme_configs.get(theme_name, theme_configs["classic"])
 
+        chart_history: dict[int, list[float]] = {}
+
         for i, (widget_type, entity_id, label, options) in enumerate(configs):
             color = accent_colors[i % len(accent_colors)]
 
@@ -659,7 +724,7 @@ def generate_theme_samples(renderer: Renderer, output_dir: Path) -> None:
                     )
                 )
             elif widget_type == "chart":
-                chart = ChartWidget(
+                widget = ChartWidget(
                     WidgetConfig(
                         widget_type="chart",
                         slot=i,
@@ -669,12 +734,10 @@ def generate_theme_samples(renderer: Renderer, output_dir: Path) -> None:
                         options=options,
                     )
                 )
-                # Set sample history data for chart (deterministic for reproducible samples)
+                # Store chart history for later use
                 rng = random.Random(42 + i)  # noqa: S311
                 base_temp = 20
-                history = [base_temp + rng.uniform(-3, 5) for _ in range(48)]
-                chart.set_history(history)
-                widget = chart
+                chart_history[i] = [base_temp + rng.uniform(-3, 5) for _ in range(48)]
             elif widget_type == "progress":
                 widget = ProgressWidget(
                     WidgetConfig(
@@ -703,7 +766,7 @@ def generate_theme_samples(renderer: Renderer, output_dir: Path) -> None:
             layout.set_widget(i, widget)
 
         img, draw = renderer.create_canvas(background=theme.background)
-        layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+        layout.render(renderer, draw, build_widget_states(layout, hass, chart_history))
         save_layout(renderer, img, f"theme_{theme_name}", output_dir)
 
 

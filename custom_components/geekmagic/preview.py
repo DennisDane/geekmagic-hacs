@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import UTC
 from typing import TYPE_CHECKING, Any, cast
 
 from .const import (
@@ -46,6 +47,7 @@ from .widgets.entity import EntityWidget
 from .widgets.gauge import GaugeWidget
 from .widgets.media import MediaWidget
 from .widgets.progress import MultiProgressWidget, ProgressWidget
+from .widgets.state import EntityState, WidgetState
 from .widgets.status import StatusListWidget, StatusWidget
 from .widgets.text import TextWidget
 from .widgets.weather import WeatherWidget
@@ -235,6 +237,79 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
                 mock.states.set(ent_id, "on", {"friendly_name": friendly})
 
 
+def _build_widget_state_for_preview(
+    widget_config: dict[str, Any],
+    mock: MockHass,
+) -> WidgetState:
+    """Build WidgetState for a widget in preview mode.
+
+    Args:
+        widget_config: Widget configuration dictionary
+        mock: MockHass instance with mock states
+
+    Returns:
+        WidgetState for the widget
+    """
+    from datetime import datetime
+
+    widget_type = widget_config.get("type", "")
+    entity_id = widget_config.get("entity_id")
+    options = widget_config.get("options", {})
+
+    # Build primary entity state
+    entity: EntityState | None = None
+    if entity_id:
+        mock_state = mock.states.get(entity_id)
+        if mock_state:
+            entity = EntityState(
+                entity_id=mock_state.entity_id,
+                state=mock_state.state,
+                attributes=mock_state.attributes,
+            )
+
+    # Build additional entities for multi-entity widgets
+    entities: dict[str, EntityState] = {}
+
+    if widget_type == "multi_progress":
+        items = options.get("items", [])
+        for item in items:
+            item_entity_id = item.get("entity_id")
+            if item_entity_id:
+                mock_state = mock.states.get(item_entity_id)
+                if mock_state:
+                    entities[item_entity_id] = EntityState(
+                        entity_id=mock_state.entity_id,
+                        state=mock_state.state,
+                        attributes=mock_state.attributes,
+                    )
+
+    elif widget_type == "status_list":
+        entity_entries = options.get("entities", [])
+        for entry in entity_entries:
+            ent_id = entry[0] if isinstance(entry, list | tuple) else entry
+            if ent_id:
+                mock_state = mock.states.get(ent_id)
+                if mock_state:
+                    entities[ent_id] = EntityState(
+                        entity_id=mock_state.entity_id,
+                        state=mock_state.state,
+                        attributes=mock_state.attributes,
+                    )
+
+    # Build mock chart history for chart widgets
+    history: list[float] = []
+    if widget_type == "chart":
+        history = [20, 22, 21, 23, 25, 24, 22, 23, 21, 20, 22, 23]
+
+    return WidgetState(
+        entity=entity,
+        entities=entities,
+        history=history,
+        image=None,
+        now=datetime.now(tz=UTC),
+    )
+
+
 def render_preview(
     layout_type: str,
     widgets_config: list[dict[str, Any]],
@@ -250,20 +325,18 @@ def render_preview(
     Returns:
         PNG image bytes
     """
-    # Use mock hass if no real one provided
-    # Cast to Any to satisfy type checker since MockHass mimics HomeAssistant interface
-    if hass is None:
-        mock = MockHass()
-        for widget_config in widgets_config:
-            _set_mock_state_for_widget(mock, widget_config)
-        render_hass: Any = cast("Any", mock)
-    else:
-        render_hass = cast("Any", hass)
+    # Build mock states for preview
+    mock = MockHass()
+    for widget_config in widgets_config:
+        _set_mock_state_for_widget(mock, widget_config)
 
     # Create renderer and layout
     renderer = Renderer()
     layout_class = LAYOUT_CLASSES.get(layout_type, Grid2x2)
     layout = layout_class()
+
+    # Build widget_states dict for all slots
+    widget_states: dict[int, WidgetState] = {}
 
     # Create and assign widgets
     for widget_config in widgets_config:
@@ -299,9 +372,12 @@ def render_preview(
         widget = widget_class(config)
         layout.set_widget(slot, widget)
 
+        # Build widget state for this slot
+        widget_states[slot] = _build_widget_state_for_preview(widget_config, mock)
+
     # Render to image
     img, draw = renderer.create_canvas()
-    layout.render(renderer, draw, render_hass)
+    layout.render(renderer, draw, widget_states)
 
     return renderer.to_png(img)
 

@@ -63,13 +63,13 @@ from .layouts.split import (
 from .renderer import Renderer
 from .widgets.base import WidgetConfig
 from .widgets.camera import CameraWidget
-from .widgets.state import EntityState, WidgetState
 from .widgets.chart import ChartWidget
 from .widgets.clock import ClockWidget
 from .widgets.entity import EntityWidget
 from .widgets.gauge import GaugeWidget
 from .widgets.media import MediaWidget
 from .widgets.progress import MultiProgressWidget, ProgressWidget
+from .widgets.state import EntityState, WidgetState
 from .widgets.status import StatusListWidget, StatusWidget
 from .widgets.text import TextWidget
 from .widgets.theme import get_theme

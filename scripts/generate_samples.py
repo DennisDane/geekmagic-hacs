@@ -8,12 +8,19 @@ will actually render, using real layouts and widgets with mock Home Assistant da
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from PIL import Image
+
+from custom_components.geekmagic.widgets.state import EntityState, WidgetState
+
+if TYPE_CHECKING:
+    from custom_components.geekmagic.layouts.base import Layout
 
 from custom_components.geekmagic.const import (
     COLOR_CYAN,
@@ -72,6 +79,72 @@ from scripts.mock_hass import (
     create_thermostat_states,
     create_weather_states,
 )
+
+
+def build_widget_states(
+    layout: Layout,
+    hass: MockHass,
+    chart_history: dict[int, list[float]] | None = None,
+) -> dict[int, WidgetState]:
+    """Build WidgetState dict for all widgets in a layout.
+
+    Args:
+        layout: Layout with widgets assigned
+        hass: MockHass with entity states
+        chart_history: Optional dict mapping slot index to history data
+
+    Returns:
+        Dict mapping slot index to WidgetState
+    """
+    widget_states: dict[int, WidgetState] = {}
+    chart_history = chart_history or {}
+
+    for slot in layout.slots:
+        if slot.widget is None:
+            continue
+
+        widget = slot.widget
+
+        # Get primary entity
+        entity_id = widget.config.entity_id
+        entity: EntityState | None = None
+        if entity_id:
+            state = hass.states.get(entity_id)
+            if state:
+                entity = EntityState(
+                    entity_id=entity_id,
+                    state=state.state,
+                    attributes=state.attributes,
+                )
+
+        # Get additional entities for multi-entity widgets
+        entities: dict[str, EntityState] = {}
+        try:
+            entity_ids = widget.get_entities()
+            for eid in entity_ids:
+                if eid and eid != entity_id:
+                    state = hass.states.get(eid)
+                    if state:
+                        entities[eid] = EntityState(
+                            entity_id=eid,
+                            state=state.state,
+                            attributes=state.attributes,
+                        )
+        except AttributeError:
+            pass
+
+        # Get chart history for chart widgets
+        history: list[float] = chart_history.get(slot.index, [])
+
+        widget_states[slot.index] = WidgetState(
+            entity=entity,
+            entities=entities,
+            history=history,
+            image=None,
+            now=datetime.now(tz=UTC),
+        )
+
+    return widget_states
 
 
 def save_image(renderer: Renderer, img: Image.Image, name: str, output_dir: Path) -> None:
@@ -236,7 +309,7 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
         )
 
     def make_chart(slot: int) -> ChartWidget:
-        widget = ChartWidget(
+        return ChartWidget(
             WidgetConfig(
                 widget_type="chart",
                 slot=slot,
@@ -246,12 +319,9 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
                 options={},
             )
         )
-        # Set mock history data
-        widget.set_history([20, 21, 22, 21, 23, 24, 23, 22, 21, 22, 23, 24])
-        return widget
 
     def make_chart_binary(slot: int) -> ChartWidget:
-        widget = ChartWidget(
+        return ChartWidget(
             WidgetConfig(
                 widget_type="chart",
                 slot=slot,
@@ -261,10 +331,12 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
                 options={},
             )
         )
-        # Set mock binary history data (0=off/closed, 1=on/open)
-        # Simulates door opening and closing over time
-        widget.set_history([0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0])
-        return widget
+
+    # Chart history data - keyed by widget_name
+    chart_histories: dict[str, list[float]] = {
+        "chart": [20, 21, 22, 21, 23, 24, 23, 22, 21, 22, 23, 24],
+        "chart_binary": [0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0],
+    }
 
     # Widget configs: (name, factory)
     widget_types = [
@@ -312,7 +384,13 @@ def generate_widget_sizes(renderer: Renderer, output_dir: Path) -> None:
                 for i in range(num_slots):
                     layout.set_widget(i, make_widget(i))
 
-            layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+            # Build chart_history for all slots if this is a chart widget
+            slot_chart_history: dict[int, list[float]] = {}
+            if widget_name in chart_histories:
+                for i in range(num_slots):
+                    slot_chart_history[i] = chart_histories[widget_name]
+
+            layout.render(renderer, draw, build_widget_states(layout, hass, slot_chart_history))
             save_image(renderer, img, f"{widget_name}_{layout_suffix}", widgets_dir)
 
     print(f"Generated widget size samples in {widgets_dir}")
@@ -378,7 +456,7 @@ def generate_system_monitor(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, net_widget)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "01_system_monitor", output_dir)
 
 
@@ -468,7 +546,7 @@ def generate_smart_home(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(5, lock)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "02_smart_home", output_dir)
 
 
@@ -494,7 +572,7 @@ def generate_weather(renderer: Renderer, output_dir: Path) -> None:
     # Footer slots can show additional info if needed
     # For now, leave them empty to let the weather widget shine
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "03_weather", output_dir)
 
 
@@ -581,7 +659,7 @@ def generate_server_stats(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(5, download)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "04_server_stats", output_dir)
 
 
@@ -606,7 +684,19 @@ def generate_media_player(renderer: Renderer, output_dir: Path) -> None:
     # Draw media widget in full canvas area using RenderContext
     rect = (8, 8, 232, 232)
     ctx = RenderContext(draw, rect, renderer)
-    media.render(ctx, hass)  # type: ignore[arg-type]
+    # Build state for the media widget
+    state_obj = hass.states.get("media_player.living_room")
+    media_state = WidgetState(
+        entity=EntityState(
+            entity_id="media_player.living_room",
+            state=state_obj.state if state_obj else "unknown",
+            attributes=state_obj.attributes if state_obj else {},
+        )
+        if state_obj
+        else None,
+        now=datetime.now(tz=UTC),
+    )
+    media.render(ctx, media_state)
 
     save_image(renderer, img, "05_media_player", output_dir)
 
@@ -671,7 +761,7 @@ def generate_energy_monitor(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, today)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "06_energy_monitor", output_dir)
 
 
@@ -757,7 +847,7 @@ def generate_fitness(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, heart)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "07_fitness", output_dir)
 
 
@@ -803,7 +893,7 @@ def generate_clock_dashboard(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(2, calendar)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "08_clock_dashboard", output_dir)
 
 
@@ -871,7 +961,7 @@ def generate_network_monitor(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, total)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "09_network_monitor", output_dir)
 
 
@@ -937,7 +1027,7 @@ def generate_thermostat(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, bathroom)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "10_thermostat", output_dir)
 
 
@@ -1001,7 +1091,7 @@ def generate_batteries(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, airpods)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "11_batteries", output_dir)
 
 
@@ -1055,7 +1145,7 @@ def generate_security(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(1, motion)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "12_security", output_dir)
 
 
@@ -1131,7 +1221,7 @@ def generate_welcome_screen(renderer: Renderer, output_dir: Path) -> None:
     )
     layout.set_widget(3, setup_hint)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "00_welcome_screen", output_dir)
 
 
@@ -1152,6 +1242,14 @@ def generate_charts_dashboard(renderer: Renderer, output_dir: Path) -> None:
     layout = Grid2x2(padding=8, gap=8)
     img, draw = renderer.create_canvas()
 
+    # Chart history data for each slot
+    chart_history: dict[int, list[float]] = {
+        0: [21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 23.8, 23.5, 23.0, 22.5, 23.0, 23.5],  # temp
+        1: [60, 62, 65, 68, 70, 68, 65, 63, 60, 58, 60, 65],  # humidity
+        2: [0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0],  # motion (binary)
+        3: [0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],  # door (binary)
+    }
+
     # Temperature chart (numeric)
     temp_chart = ChartWidget(
         WidgetConfig(
@@ -1163,7 +1261,6 @@ def generate_charts_dashboard(renderer: Renderer, output_dir: Path) -> None:
             options={},
         )
     )
-    temp_chart.set_history([21.5, 22.0, 22.5, 23.0, 23.5, 24.0, 23.8, 23.5, 23.0, 22.5, 23.0, 23.5])
     layout.set_widget(0, temp_chart)
 
     # Humidity chart (numeric)
@@ -1177,7 +1274,6 @@ def generate_charts_dashboard(renderer: Renderer, output_dir: Path) -> None:
             options={},
         )
     )
-    humid_chart.set_history([60, 62, 65, 68, 70, 68, 65, 63, 60, 58, 60, 65])
     layout.set_widget(1, humid_chart)
 
     # Motion sensor chart (binary)
@@ -1191,8 +1287,6 @@ def generate_charts_dashboard(renderer: Renderer, output_dir: Path) -> None:
             options={},
         )
     )
-    # Binary: 0=no motion, 1=motion detected
-    motion_chart.set_history([0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0])
     layout.set_widget(2, motion_chart)
 
     # Door sensor chart (binary)
@@ -1206,11 +1300,9 @@ def generate_charts_dashboard(renderer: Renderer, output_dir: Path) -> None:
             options={},
         )
     )
-    # Binary: 0=closed, 1=open
-    door_chart.set_history([0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0])
     layout.set_widget(3, door_chart)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass, chart_history))
     save_image(renderer, img, "15_charts_dashboard", output_dir)
 
 
@@ -1245,7 +1337,7 @@ def generate_gauge_sizes_2x2(renderer: Renderer, output_dir: Path) -> None:
         )
         layout.set_widget(i, gauge)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "13_gauges_large", output_dir)
 
 
@@ -1284,7 +1376,7 @@ def generate_gauge_sizes_2x3(renderer: Renderer, output_dir: Path) -> None:
         )
         layout.set_widget(i, gauge)
 
-    layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+    layout.render(renderer, draw, build_widget_states(layout, hass))
     save_image(renderer, img, "14_gauges_small", output_dir)
 
 
@@ -1342,7 +1434,7 @@ def generate_layout_samples(renderer: Renderer, output_dir: Path) -> None:
             )
             layout.set_widget(i, widget)
 
-        layout.render(renderer, draw, hass)  # type: ignore[arg-type]
+        layout.render(renderer, draw, build_widget_states(layout, hass))
         save_image(renderer, img, f"layout_{layout_name}", layouts_dir)
 
     print(f"Generated layout samples in {layouts_dir}")

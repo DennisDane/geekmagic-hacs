@@ -29,6 +29,7 @@ from .const import (
 )
 from .renderer import Renderer
 from .widgets.base import WidgetConfig
+from .widgets.state import EntityState, WidgetState
 
 if TYPE_CHECKING:
     from .coordinator import GeekMagicCoordinator
@@ -685,7 +686,6 @@ async def ws_preview_render(
 
     # Import here to avoid circular imports
     from .coordinator import LAYOUT_CLASSES, WIDGET_CLASSES
-    from .widgets.chart import ChartWidget
     from .widgets.theme import get_theme
 
     # Pre-fetch history for chart widgets
@@ -774,18 +774,46 @@ async def ws_preview_render(
                 options=widget_data.get("options", {}),
             )
             widget = widget_class(config)
-
-            # Set history data for chart widgets
-            if widget_type == "chart" and isinstance(widget, ChartWidget):
-                entity_id = widget_data.get("entity_id")
-                if entity_id and entity_id in chart_history:
-                    widget.set_history(chart_history[entity_id])
-
             layout.set_widget(slot, widget)
+
+        # Build widget_states for rendering
+        widget_states: dict[int, WidgetState] = {}
+        now = datetime.now(tz=dt_util.DEFAULT_TIME_ZONE)
+        for widget_data in view_config.get("widgets", []):
+            slot = widget_data.get("slot", 0)
+            if slot >= layout.get_slot_count():
+                continue
+
+            entity_id = widget_data.get("entity_id")
+            entity: EntityState | None = None
+
+            # Build entity state from hass
+            if entity_id:
+                state = hass.states.get(entity_id)
+                if state:
+                    entity = EntityState(
+                        entity_id=entity_id,
+                        state=state.state,
+                        attributes=dict(state.attributes),
+                    )
+
+            # Get chart history if available
+            history: list[float] = []
+            widget_type = widget_data.get("type")
+            if widget_type == "chart" and entity_id in chart_history:
+                history = chart_history[entity_id]
+
+            widget_states[slot] = WidgetState(
+                entity=entity,
+                entities={},
+                history=history,
+                image=None,
+                now=now,
+            )
 
         # Render
         img, draw = renderer.create_canvas(background=layout.theme.background)
-        layout.render(renderer, draw, hass)
+        layout.render(renderer, draw, widget_states)
         return renderer.to_png(img)
 
     try:

@@ -1,7 +1,9 @@
 """Tests for widget classes."""
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
@@ -19,9 +21,60 @@ from custom_components.geekmagic.widgets.entity import EntityWidget
 from custom_components.geekmagic.widgets.gauge import GaugeWidget
 from custom_components.geekmagic.widgets.media import MediaWidget
 from custom_components.geekmagic.widgets.progress import MultiProgressWidget, ProgressWidget
+from custom_components.geekmagic.widgets.state import EntityState, WidgetState
 from custom_components.geekmagic.widgets.status import StatusListWidget, StatusWidget
 from custom_components.geekmagic.widgets.text import TextWidget
 from custom_components.geekmagic.widgets.weather import WeatherWidget
+
+
+def _build_entity_state(hass: Any, entity_id: str) -> EntityState | None:
+    """Build EntityState from hass for a given entity_id."""
+    state = hass.states.get(entity_id)
+    if state is None:
+        return None
+    return EntityState(
+        entity_id=entity_id,
+        state=state.state,
+        attributes=dict(state.attributes),
+    )
+
+
+def _build_widget_state(
+    hass: Any | None = None,
+    entity_id: str | None = None,
+    extra_entities: list[str] | None = None,
+    history: list[float] | None = None,
+) -> WidgetState:
+    """Build a WidgetState for testing.
+
+    Args:
+        hass: HomeAssistant instance (optional)
+        entity_id: Primary entity ID
+        extra_entities: List of additional entity IDs
+        history: Chart history data
+
+    Returns:
+        WidgetState instance
+    """
+    entity = None
+    entities: dict[str, EntityState] = {}
+
+    if hass and entity_id:
+        entity = _build_entity_state(hass, entity_id)
+
+    if hass and extra_entities:
+        for eid in extra_entities:
+            ent_state = _build_entity_state(hass, eid)
+            if ent_state:
+                entities[eid] = ent_state
+
+    return WidgetState(
+        entity=entity,
+        entities=entities,
+        history=history or [],
+        image=None,
+        now=datetime.now(tz=UTC),
+    )
 
 
 @pytest.fixture
@@ -127,7 +180,8 @@ class TestClockWidget:
         widget = ClockWidget(config)
 
         # Should not raise exception
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
 
         # Verify image is valid
         assert img.size == (480, 480)
@@ -142,7 +196,8 @@ class TestClockWidget:
             options={"time_format": "24h"},
         )
         widget = ClockWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_12h(self, renderer, canvas, rect):
@@ -155,7 +210,8 @@ class TestClockWidget:
             options={"time_format": "12h"},
         )
         widget = ClockWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -193,7 +249,8 @@ class TestEntityWidget:
             entity_id="sensor.temperature",
         )
         widget = EntityWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()  # No entity
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_with_entity(self, renderer, canvas, rect, hass, mock_entity_state):
@@ -213,7 +270,8 @@ class TestEntityWidget:
             entity_id="sensor.temperature",
         )
         widget = EntityWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.temperature")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -245,7 +303,8 @@ class TestMediaWidget:
             entity_id="media_player.living_room",
         )
         widget = MediaWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "media_player.living_room")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_playing(self, renderer, canvas, rect, hass):
@@ -271,17 +330,17 @@ class TestMediaWidget:
             entity_id="media_player.living_room",
         )
         widget = MediaWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "media_player.living_room")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
-    def test_format_time(self):
+    def test_format_time(self, renderer, canvas, rect):
         """Test time formatting."""
-        config = WidgetConfig(widget_type="media", slot=0)
-        widget = MediaWidget(config)
+        from custom_components.geekmagic.widgets.media import _format_time
 
-        assert widget._format_time(0) == "0:00"
-        assert widget._format_time(65) == "1:05"
-        assert widget._format_time(3661) == "1:01:01"
+        assert _format_time(0) == "0:00"
+        assert _format_time(65) == "1:05"
+        assert _format_time(3661) == "1:01:01"
 
 
 class TestChartWidget:
@@ -298,15 +357,6 @@ class TestChartWidget:
         assert widget.hours == 24
         assert widget.show_value is True
 
-    def test_set_history(self):
-        """Test setting history data."""
-        config = WidgetConfig(widget_type="chart", slot=0)
-        widget = ChartWidget(config)
-
-        data = [10, 15, 12, 18, 22]
-        widget.set_history(data)
-        assert widget._history_data == data
-
     def test_render_no_data(self, renderer, canvas, rect):
         """Test rendering without data."""
         img, draw = canvas
@@ -317,7 +367,8 @@ class TestChartWidget:
             label="Temperature",
         )
         widget = ChartWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()  # No history
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_with_data(self, renderer, canvas, rect, hass, mock_entity_state):
@@ -337,29 +388,34 @@ class TestChartWidget:
             entity_id="sensor.temperature",
         )
         widget = ChartWidget(config)
-        widget.set_history([20.0, 21.5, 22.0, 21.0, 23.5, 24.0, 23.0])
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(
+            hass,
+            "sensor.temperature",
+            history=[20.0, 21.5, 22.0, 21.0, 23.5, 24.0, 23.0],
+        )
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_is_binary_data_true(self):
         """Test binary data detection returns true for 0/1 data."""
-        config = WidgetConfig(widget_type="chart", slot=0)
-        widget = ChartWidget(config)
-        widget.set_history([0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0])
-        assert widget._is_binary_data() is True
+        from custom_components.geekmagic.widgets.chart import ChartDisplay
+
+        display = ChartDisplay(data=[0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 0.0])
+        assert display._is_binary_data() is True
 
     def test_is_binary_data_false(self):
         """Test binary data detection returns false for numeric data."""
-        config = WidgetConfig(widget_type="chart", slot=0)
-        widget = ChartWidget(config)
-        widget.set_history([20.0, 21.5, 22.0, 21.0, 23.5])
-        assert widget._is_binary_data() is False
+        from custom_components.geekmagic.widgets.chart import ChartDisplay
+
+        display = ChartDisplay(data=[20.0, 21.5, 22.0, 21.0, 23.5])
+        assert display._is_binary_data() is False
 
     def test_is_binary_data_empty(self):
         """Test binary data detection returns false for empty data."""
-        config = WidgetConfig(widget_type="chart", slot=0)
-        widget = ChartWidget(config)
-        assert widget._is_binary_data() is False
+        from custom_components.geekmagic.widgets.chart import ChartDisplay
+
+        display = ChartDisplay(data=[])
+        assert display._is_binary_data() is False
 
     def test_render_binary_data(self, renderer, canvas, rect, hass):
         """Test rendering with binary sensor data uses timeline bar."""
@@ -379,8 +435,12 @@ class TestChartWidget:
         )
         widget = ChartWidget(config)
         # Binary data: 0=closed, 1=open
-        widget.set_history([0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0])
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(
+            hass,
+            "binary_sensor.door",
+            history=[0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 0.0],
+        )
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -409,7 +469,8 @@ class TestTextWidget:
             options={"text": "Hello", "size": "large"},
         )
         widget = TextWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_entity_text(self, renderer, canvas, rect, hass, mock_entity_state):
@@ -429,7 +490,8 @@ class TestTextWidget:
             entity_id="sensor.temperature",
         )
         widget = TextWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.temperature")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_different_alignments(self, renderer, rect):
@@ -443,7 +505,8 @@ class TestTextWidget:
                 options={"text": "Test", "align": align},
             )
             widget = TextWidget(config)
-            widget.render(ctx)
+            state = _build_widget_state()
+            widget.render(ctx, state)
             assert img.size == (480, 480)
 
     def test_different_sizes(self, renderer, rect):
@@ -457,7 +520,8 @@ class TestTextWidget:
                 options={"text": "Test", "size": size},
             )
             widget = TextWidget(config)
-            widget.render(ctx)
+            state = _build_widget_state()
+            widget.render(ctx, state)
             assert img.size == (480, 480)
 
 
@@ -504,7 +568,8 @@ class TestGaugeWidget:
             options={"style": "bar"},
         )
         widget = GaugeWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.cpu")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_ring_style(self, renderer, canvas, rect, hass):
@@ -520,7 +585,8 @@ class TestGaugeWidget:
             options={"style": "ring"},
         )
         widget = GaugeWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.cpu")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_arc_style(self, renderer, canvas, rect, hass):
@@ -536,7 +602,8 @@ class TestGaugeWidget:
             options={"style": "arc"},
         )
         widget = GaugeWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.cpu")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_without_entity(self, renderer, canvas, rect):
@@ -546,7 +613,8 @@ class TestGaugeWidget:
 
         config = WidgetConfig(widget_type="gauge", slot=0)
         widget = GaugeWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -592,7 +660,8 @@ class TestProgressWidget:
             options={"target": 10000},
         )
         widget = ProgressWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "sensor.steps")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_without_entity(self, renderer, canvas, rect):
@@ -602,7 +671,8 @@ class TestProgressWidget:
 
         config = WidgetConfig(widget_type="progress", slot=0)
         widget = ProgressWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -655,7 +725,8 @@ class TestMultiProgressWidget:
             },
         )
         widget = MultiProgressWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, extra_entities=["sensor.steps", "sensor.calories"])
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -698,7 +769,8 @@ class TestStatusWidget:
             entity_id="binary_sensor.door",
         )
         widget = StatusWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "binary_sensor.door")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_off_state(self, renderer, canvas, rect, hass):
@@ -713,7 +785,8 @@ class TestStatusWidget:
             entity_id="binary_sensor.door",
         )
         widget = StatusWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "binary_sensor.door")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -759,7 +832,10 @@ class TestStatusListWidget:
             },
         )
         widget = StatusListWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(
+            hass, extra_entities=["binary_sensor.front_door", "binary_sensor.back_door"]
+        )
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
 
@@ -798,7 +874,8 @@ class TestWeatherWidget:
 
         config = WidgetConfig(widget_type="weather", slot=0)
         widget = WeatherWidget(config)
-        widget.render(ctx)
+        state = _build_widget_state()
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_with_entity(self, renderer, canvas, rect, hass):
@@ -825,7 +902,8 @@ class TestWeatherWidget:
             entity_id="weather.home",
         )
         widget = WeatherWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "weather.home")
+        widget.render(ctx, state)
         assert img.size == (480, 480)
 
     def test_render_compact_mode(self, renderer, hass):
@@ -846,5 +924,6 @@ class TestWeatherWidget:
             entity_id="weather.home",
         )
         widget = WeatherWidget(config)
-        widget.render(ctx, hass=hass)
+        state = _build_widget_state(hass, "weather.home")
+        widget.render(ctx, state)
         assert img.size == (480, 480)

@@ -8,6 +8,7 @@ to the widget's area to produce correctly-sized sample images.
 from __future__ import annotations
 
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,45 @@ from custom_components.geekmagic.widgets import (
     WeatherWidget,
     WidgetConfig,
 )
+from custom_components.geekmagic.widgets.state import EntityState, WidgetState
 from scripts.mock_hass import MockHass
+
+
+def build_widget_state(
+    hass: MockHass,
+    entity_id: str | None = None,
+    extra_entities: list[str] | None = None,
+    history: list[float] | None = None,
+) -> WidgetState:
+    """Build WidgetState for a widget."""
+    entity: EntityState | None = None
+    if entity_id:
+        state = hass.states.get(entity_id)
+        if state:
+            entity = EntityState(
+                entity_id=entity_id,
+                state=state.state,
+                attributes=state.attributes,
+            )
+
+    entities: dict[str, EntityState] = {}
+    if extra_entities:
+        for eid in extra_entities:
+            state = hass.states.get(eid)
+            if state:
+                entities[eid] = EntityState(
+                    entity_id=eid,
+                    state=state.state,
+                    attributes=state.attributes,
+                )
+
+    return WidgetState(
+        entity=entity,
+        entities=entities,
+        history=history or [],
+        image=None,
+        now=datetime.now(tz=UTC),
+    )
 
 
 def render_widget_sample(
@@ -51,6 +90,7 @@ def render_widget_sample(
     hass: MockHass,
     width: int,
     height: int,
+    history: list[float] | None = None,
 ) -> Image.Image:
     """Render a widget at specified size by rendering on full canvas and cropping.
 
@@ -60,6 +100,7 @@ def render_widget_sample(
         hass: Mock Home Assistant instance
         width: Desired output width
         height: Desired output height
+        history: Optional chart history data
 
     Returns:
         Cropped and finalized widget image
@@ -73,9 +114,13 @@ def render_widget_sample(
     y = (240 - height) // 2
     rect = (x, y, x + width, y + height)
 
+    # Build widget state
+    entity_id = widget.config.entity_id if hasattr(widget, "config") else None
+    state = build_widget_state(hass, entity_id, history=history)
+
     # Create RenderContext and render widget
     ctx = RenderContext(draw, rect, renderer)
-    widget.render(ctx, hass)  # type: ignore[arg-type]
+    widget.render(ctx, state)
 
     # Finalize the full image
     final_full = renderer.finalize(img)
@@ -200,10 +245,10 @@ def generate_chart(renderer: Renderer, output_dir: Path) -> None:
             options={"show_value": True, "show_range": True},
         )
     )
-    # Set mock history data using the public setter
-    widget.set_history([18.5, 19.2, 20.1, 21.5, 22.3, 23.0, 23.5, 22.8, 21.5, 20.2])
 
-    img = render_widget_sample(renderer, widget, hass, 120, 80)
+    # Pass history data to render
+    history = [18.5, 19.2, 20.1, 21.5, 22.3, 23.0, 23.5, 22.8, 21.5, 20.2]
+    img = render_widget_sample(renderer, widget, hass, 120, 80, history=history)
     save_widget(img, "chart", output_dir)
 
 
