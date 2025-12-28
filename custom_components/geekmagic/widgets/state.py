@@ -63,6 +63,7 @@ class WidgetState:
         entities: Additional entities for multi-entity widgets
         history: Pre-fetched history data for charts
         image: Pre-fetched camera image
+        forecast: Pre-fetched weather forecast data
         now: Current datetime with timezone
     """
 
@@ -75,6 +76,7 @@ class WidgetState:
     # Pre-fetched data
     history: list[float] = field(default_factory=list)
     image: Image.Image | None = field(default=None)
+    forecast: list[dict[str, Any]] = field(default_factory=list)
 
     # Current time (for clock widgets)
     now: datetime | None = None

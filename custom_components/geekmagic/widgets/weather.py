@@ -271,7 +271,7 @@ class WeatherWidget(Widget):
             temperature=entity.get("temperature", "--"),
             humidity=entity.get("humidity", "--"),
             condition=entity.state,
-            forecast=entity.get("forecast", []),
+            forecast=state.forecast,  # Use pre-fetched forecast from coordinator
             show_forecast=self.show_forecast,
             show_humidity=self.show_humidity,
             show_high_low=self.show_high_low,

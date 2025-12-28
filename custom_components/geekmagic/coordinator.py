@@ -199,6 +199,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
         self.config_entry = config_entry
         self._camera_images: dict[str, bytes] = {}  # Pre-fetched camera images
         self._chart_history: dict[str, list[float]] = {}  # Pre-fetched chart history
+        self._weather_forecasts: dict[str, list[dict[str, Any]]] = {}  # Pre-fetched forecasts
         self._update_preview: bool = True  # Update preview on next refresh
         self._preview_just_updated: bool = False  # True if preview was updated in last refresh
 
@@ -612,6 +613,11 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                     with contextlib.suppress(Exception):
                         image = Image.open(BytesIO(image_bytes))
 
+            # Get pre-fetched weather forecast
+            forecast: list[dict[str, Any]] = []
+            if isinstance(widget, WeatherWidget) and widget.config.entity_id:
+                forecast = self._weather_forecasts.get(widget.config.entity_id, [])
+
             # Handle clock widget timezone override
             widget_now = now
             if isinstance(widget, ClockWidget) and hasattr(widget, "timezone") and widget.timezone:
@@ -624,6 +630,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                 entities=additional,
                 history=history,
                 image=image,
+                forecast=forecast,
                 now=widget_now,
             )
 
@@ -740,9 +747,11 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                     "theme": self._builtin_theme,
                 }
 
-            # Pre-fetch camera images and chart history (must be done in async context)
+            # Pre-fetch camera images, chart history, and weather forecasts
+            # (must be done in async context)
             await self._async_fetch_camera_images()
             await self._async_fetch_chart_history()
+            await self._async_fetch_weather_forecasts()
 
             # Render image in executor to avoid blocking the event loop
             # (Pillow image operations are CPU-intensive)
@@ -1064,3 +1073,50 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                     _LOGGER.debug("No history returned for %s", entity_id)
             except Exception as e:
                 _LOGGER.warning("Failed to fetch history for %s: %s", entity_id, e)
+
+    async def _async_fetch_weather_forecasts(self) -> None:
+        """Pre-fetch forecast data for all weather widgets.
+
+        This must be called from the async context before rendering,
+        since weather.get_forecasts is a service call that requires async.
+
+        Uses the weather.get_forecasts service introduced in Home Assistant 2023.9,
+        since the forecast attribute was removed from weather entities in 2024.3.
+        """
+        # Find all weather widgets in current layout
+        weather_entity_ids: set[str] = set()
+
+        if self._layouts and 0 <= self._current_screen < len(self._layouts):
+            layout = self._layouts[self._current_screen]
+            for slot in layout.slots:
+                if slot.widget and isinstance(slot.widget, WeatherWidget):
+                    entity_id = slot.widget.config.entity_id
+                    if entity_id:
+                        weather_entity_ids.add(entity_id)
+
+        if not weather_entity_ids:
+            return
+
+        # Fetch forecast for each weather entity
+        for entity_id in weather_entity_ids:
+            try:
+                # Use daily forecast type (most common for weather displays)
+                response = await self.hass.services.async_call(
+                    "weather",
+                    "get_forecasts",
+                    {"type": "daily"},
+                    target={"entity_id": entity_id},
+                    blocking=True,
+                    return_response=True,
+                )
+
+                if response and entity_id in response:
+                    forecast = response[entity_id].get("forecast", [])
+                    self._weather_forecasts[entity_id] = forecast
+                    _LOGGER.debug(
+                        "Fetched %d forecast days for %s",
+                        len(forecast),
+                        entity_id,
+                    )
+            except Exception as e:
+                _LOGGER.debug("Failed to fetch forecast for %s: %s", entity_id, e)

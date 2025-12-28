@@ -733,6 +733,27 @@ async def ws_preview_render(
         # Recorder not available, charts will show no data
         pass
 
+    # Pre-fetch forecast for weather widgets
+    # Uses weather.get_forecasts service (required since HA 2024.3+)
+    weather_forecasts: dict[str, list[dict[str, Any]]] = {}
+    for widget_data in view_config.get("widgets", []):
+        if widget_data.get("type") == "weather":
+            entity_id = widget_data.get("entity_id")
+            if entity_id:
+                try:
+                    response = await hass.services.async_call(
+                        "weather",
+                        "get_forecasts",
+                        {"type": "daily"},
+                        target={"entity_id": entity_id},
+                        blocking=True,
+                        return_response=True,
+                    )
+                    if response and entity_id in response:
+                        weather_forecasts[entity_id] = response[entity_id].get("forecast", [])
+                except Exception as err:
+                    _LOGGER.debug("Failed to fetch forecast for %s: %s", entity_id, err)
+
     def _render() -> bytes:
         """Render the view (runs in executor)."""
         renderer = Renderer()
@@ -803,10 +824,16 @@ async def ws_preview_render(
             if widget_type == "chart" and entity_id in chart_history:
                 history = chart_history[entity_id]
 
+            # Get weather forecast if available
+            forecast: list[dict[str, Any]] = []
+            if widget_type == "weather" and entity_id in weather_forecasts:
+                forecast = weather_forecasts[entity_id]
+
             widget_states[slot] = WidgetState(
                 entity=entity,
                 entities={},
                 history=history,
+                forecast=forecast,
                 image=None,
                 now=now,
             )

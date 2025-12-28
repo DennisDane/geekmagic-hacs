@@ -44,6 +44,7 @@ def _build_widget_state(
     entity_id: str | None = None,
     extra_entities: list[str] | None = None,
     history: list[float] | None = None,
+    forecast: list[dict[str, Any]] | None = None,
 ) -> WidgetState:
     """Build a WidgetState for testing.
 
@@ -52,6 +53,7 @@ def _build_widget_state(
         entity_id: Primary entity ID
         extra_entities: List of additional entity IDs
         history: Chart history data
+        forecast: Weather forecast data
 
     Returns:
         WidgetState instance
@@ -72,6 +74,7 @@ def _build_widget_state(
         entity=entity,
         entities=entities,
         history=history or [],
+        forecast=forecast or [],
         image=None,
         now=datetime.now(tz=UTC),
     )
@@ -889,12 +892,16 @@ class TestWeatherWidget:
                 "friendly_name": "Home",
                 "temperature": 22,
                 "humidity": 45,
-                "forecast": [
-                    {"datetime": "Mon", "condition": "sunny", "temperature": 24},
-                    {"datetime": "Tue", "condition": "cloudy", "temperature": 20},
-                ],
+                # Note: forecast is no longer in attributes since HA 2024.3+
+                # It's now fetched via weather.get_forecasts service
             },
         )
+
+        # Forecast is now provided via WidgetState, not entity attributes
+        forecast = [
+            {"datetime": "Mon", "condition": "sunny", "temperature": 24},
+            {"datetime": "Tue", "condition": "cloudy", "temperature": 20},
+        ]
 
         config = WidgetConfig(
             widget_type="weather",
@@ -902,7 +909,7 @@ class TestWeatherWidget:
             entity_id="weather.home",
         )
         widget = WeatherWidget(config)
-        state = _build_widget_state(hass, "weather.home")
+        state = _build_widget_state(hass, "weather.home", forecast=forecast)
         widget.render(ctx, state)
         assert img.size == (480, 480)
 

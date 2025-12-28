@@ -198,11 +198,8 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
                 "temperature": 24,
                 "humidity": 45,
                 "friendly_name": "Weather",
-                "forecast": [
-                    {"datetime": "Mon", "condition": "sunny", "temperature": 26},
-                    {"datetime": "Tue", "condition": "cloudy", "temperature": 22},
-                    {"datetime": "Wed", "condition": "rainy", "temperature": 18},
-                ],
+                # Note: forecast is no longer in attributes (HA 2024.3+)
+                # It's now provided via WidgetState.forecast
             },
         )
     elif widget_type == "text" and entity_id:
@@ -299,10 +296,22 @@ def _build_widget_state_for_preview(
     if widget_type == "chart":
         history = [20, 22, 21, 23, 25, 24, 22, 23, 21, 20, 22, 23]
 
+    # Build mock forecast for weather widgets
+    forecast: list[dict[str, Any]] = []
+    if widget_type == "weather":
+        forecast = [
+            {"datetime": "Mon", "condition": "sunny", "temperature": 26, "templow": 14},
+            {"datetime": "Tue", "condition": "cloudy", "temperature": 22, "templow": 12},
+            {"datetime": "Wed", "condition": "rainy", "temperature": 18, "templow": 10},
+            {"datetime": "Thu", "condition": "partlycloudy", "temperature": 20, "templow": 11},
+            {"datetime": "Fri", "condition": "sunny", "temperature": 24, "templow": 13},
+        ]
+
     return WidgetState(
         entity=entity,
         entities=entities,
         history=history,
+        forecast=forecast,
         image=None,
         now=datetime.now(tz=UTC),
     )
