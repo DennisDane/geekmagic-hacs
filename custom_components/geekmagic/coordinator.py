@@ -198,6 +198,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
         self._last_update_time: float | None = None
         self.config_entry = config_entry
         self._camera_images: dict[str, bytes] = {}  # Pre-fetched camera images
+        self._media_images: dict[str, bytes] = {}  # Pre-fetched media player album art
         self._chart_history: dict[str, list[float]] = {}  # Pre-fetched chart history
         self._weather_forecasts: dict[str, list[dict[str, Any]]] = {}  # Pre-fetched forecasts
         self._update_preview: bool = True  # Update preview on next refresh
@@ -605,10 +606,15 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             if isinstance(widget, ChartWidget) and widget.config.entity_id:
                 history = self._chart_history.get(widget.config.entity_id, [])
 
-            # Get pre-fetched camera image
+            # Get pre-fetched camera image or media album art
             image = None
             if isinstance(widget, CameraWidget) and widget.config.entity_id:
                 image_bytes = self._camera_images.get(widget.config.entity_id)
+                if image_bytes:
+                    with contextlib.suppress(Exception):
+                        image = Image.open(BytesIO(image_bytes))
+            elif isinstance(widget, MediaWidget) and widget.config.entity_id:
+                image_bytes = self._media_images.get(widget.config.entity_id)
                 if image_bytes:
                     with contextlib.suppress(Exception):
                         image = Image.open(BytesIO(image_bytes))
@@ -747,9 +753,10 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                     "theme": self._builtin_theme,
                 }
 
-            # Pre-fetch camera images, chart history, and weather forecasts
+            # Pre-fetch async data (camera images, media art, chart history, weather forecasts)
             # (must be done in async context)
             await self._async_fetch_camera_images()
+            await self._async_fetch_media_images()
             await self._async_fetch_chart_history()
             await self._async_fetch_weather_forecasts()
 
@@ -972,6 +979,71 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             Image bytes or None if not available
         """
         return self._camera_images.get(entity_id)
+
+    async def _async_fetch_media_images(self) -> None:
+        """Pre-fetch album art images for all media player widgets.
+
+        Fetches entity_picture URLs from media player entities and downloads
+        the album art images for display.
+        """
+        import aiohttp
+
+        # Find all media widgets in current layout
+        media_entity_ids: set[str] = set()
+
+        if self._layouts and 0 <= self._current_screen < len(self._layouts):
+            layout = self._layouts[self._current_screen]
+            for slot in layout.slots:
+                if slot.widget and isinstance(slot.widget, MediaWidget):
+                    entity_id = slot.widget.config.entity_id
+                    if entity_id:
+                        media_entity_ids.add(entity_id)
+
+        if not media_entity_ids:
+            return
+
+        # Fetch album art for each media player
+        for entity_id in media_entity_ids:
+            state = self.hass.states.get(entity_id)
+            if state is None:
+                continue
+
+            # Get entity_picture URL from attributes
+            entity_picture = state.attributes.get("entity_picture")
+            if not entity_picture:
+                # Clear any cached image if no picture available
+                self._media_images.pop(entity_id, None)
+                continue
+
+            # Build full URL if relative
+            if entity_picture.startswith("/"):
+                # Use internal Home Assistant URL
+                base_url = self.hass.config.internal_url or "http://localhost:8123"
+                image_url = f"{base_url}{entity_picture}"
+            else:
+                image_url = entity_picture
+
+            try:
+                async with (
+                    aiohttp.ClientSession() as session,
+                    session.get(image_url, timeout=aiohttp.ClientTimeout(total=10)) as response,
+                ):
+                    if response.status == 200:
+                        image_data = await response.read()
+                        self._media_images[entity_id] = image_data
+                        _LOGGER.debug(
+                            "Fetched album art for %s: %d bytes",
+                            entity_id,
+                            len(image_data),
+                        )
+                    else:
+                        _LOGGER.debug(
+                            "Failed to fetch album art for %s: HTTP %d",
+                            entity_id,
+                            response.status,
+                        )
+            except Exception as e:
+                _LOGGER.debug("Failed to fetch album art for %s: %s", entity_id, e)
 
     def _fetch_entity_history(self, entity_id: str, start: datetime, end: datetime) -> list:
         """Fetch history for an entity (sync, runs in executor).
