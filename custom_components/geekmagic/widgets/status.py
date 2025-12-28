@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from ..const import COLOR_LIME, COLOR_RED, PLACEHOLDER_NAME
+from ..render_context import SizeCategory, get_size_category
 from .base import Widget, WidgetConfig
 from .components import (
     THEME_TEXT_PRIMARY,
@@ -18,7 +19,7 @@ from .components import (
     Spacer,
     Text,
 )
-from .helpers import estimate_max_chars, truncate_text
+from .helpers import ON_STATES, estimate_max_chars, truncate_text
 
 if TYPE_CHECKING:
     from ..render_context import RenderContext
@@ -29,7 +30,7 @@ def _is_entity_on(entity: EntityState | None) -> bool:
     """Check if entity is in 'on' state."""
     if entity is None:
         return False
-    return entity.state.lower() in ("on", "true", "1", "home", "open", "unlocked")
+    return entity.state.lower() in ON_STATES
 
 
 @dataclass
@@ -50,18 +51,74 @@ class StatusIndicator(Component):
 
     def render(self, ctx: RenderContext, x: int, y: int, width: int, height: int) -> None:
         """Render status indicator using component primitives."""
-        padding = int(width * 0.06)
-        icon_size = max(12, min(24, int(height * 0.35)))
-
+        size = get_size_category(height)
         color = self.on_color if self.is_on else self.off_color
         status_text = self.on_text if self.is_on else self.off_text
+
+        # Use vertical layout with prominent icon for larger cells
+        if size in (SizeCategory.MEDIUM, SizeCategory.LARGE) and self.icon:
+            self._render_vertical(ctx, x, y, width, height, color, status_text)
+        else:
+            self._render_horizontal(ctx, x, y, width, height, color, status_text)
+
+    def _render_vertical(
+        self,
+        ctx: RenderContext,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        color: Color,
+        status_text: str,
+    ) -> None:
+        """Render vertical layout with prominent icon for larger cells."""
+        # Guard: this method requires an icon (caller checks, but type checker needs this)
+        if not self.icon:
+            return
+
+        padding = int(width * 0.08)
+        icon_size = max(32, min(64, int(height * 0.40)))
+
+        # Truncate name for display
+        max_name_len = estimate_max_chars(width, char_width=8, padding=padding * 2)
+        name = truncate_text(self.name, max_name_len, style="middle")
+
+        children: list[Component] = [
+            Icon(name=self.icon, size=icon_size, color=color),
+            Text(text=name, font="small", color=THEME_TEXT_PRIMARY),
+        ]
+
+        if self.show_status_text:
+            children.append(Text(text=status_text, font="medium", color=color, bold=True))
+
+        Column(
+            children=children,
+            gap=int(height * 0.05),
+            padding=padding,
+            align="center",
+            justify="center",
+        ).render(ctx, x, y, width, height)
+
+    def _render_horizontal(
+        self,
+        ctx: RenderContext,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        color: Color,
+        status_text: str,
+    ) -> None:
+        """Render horizontal layout for compact cells."""
+        padding = int(width * 0.06)
+        icon_size = max(12, min(24, int(height * 0.35)))
 
         # Truncate name
         max_name_len = estimate_max_chars(width, char_width=7, padding=20)
         name = truncate_text(self.name, max_name_len, style="middle")
 
         # Build component tree
-        children = []
+        children: list[Component] = []
 
         # Add icon if provided
         if self.icon:
