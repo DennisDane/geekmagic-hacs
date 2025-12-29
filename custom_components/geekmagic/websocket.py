@@ -6,6 +6,7 @@ Provides commands for managing views, devices, and preview rendering.
 from __future__ import annotations
 
 import base64
+import contextlib
 import logging
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -798,8 +799,13 @@ async def ws_preview_render(
             layout.set_widget(slot, widget)
 
         # Build widget_states for rendering
+        from datetime import UTC
+        from zoneinfo import ZoneInfo
+
         widget_states: dict[int, WidgetState] = {}
-        now = datetime.now(tz=dt_util.DEFAULT_TIME_ZONE)
+        tz = getattr(hass.config, "time_zone_obj", None) or UTC
+        now = datetime.now(tz=tz)
+
         for widget_data in view_config.get("widgets", []):
             slot = widget_data.get("slot", 0)
             if slot >= layout.get_slot_count():
@@ -829,13 +835,21 @@ async def ws_preview_render(
             if widget_type == "weather" and entity_id in weather_forecasts:
                 forecast = weather_forecasts[entity_id]
 
+            # Handle clock widget timezone override
+            widget_now = now
+            if widget_type == "clock":
+                tz_option = widget_data.get("options", {}).get("timezone")
+                if tz_option:
+                    with contextlib.suppress(Exception):
+                        widget_now = datetime.now(tz=ZoneInfo(tz_option))
+
             widget_states[slot] = WidgetState(
                 entity=entity,
                 entities={},
                 history=history,
                 forecast=forecast,
                 image=None,
-                now=now,
+                now=widget_now,
             )
 
         # Render
