@@ -13,6 +13,8 @@ from custom_components.geekmagic.const import (
 )
 from custom_components.geekmagic.coordinator import GeekMagicCoordinator
 from custom_components.geekmagic.layouts.hero import HeroLayout
+from custom_components.geekmagic.layouts.hero_simple import HeroSimpleLayout
+from custom_components.geekmagic.layouts.fullscreen import FullscreenLayout
 
 @pytest.fixture
 def coordinator_device():
@@ -62,14 +64,16 @@ class TestNotification:
             assert coordinator._notification_expiry == 1005
             assert coordinator.async_request_refresh.called
 
+            assert coordinator.async_request_refresh.called
+
     @pytest.mark.asyncio
     async def test_notification_layout_creation(self, hass, coordinator_device, options):
-        """Test notification layout is created correctly."""
+        """Test notification layout is created correctly (HeroSimpleLayout)."""
         coordinator = GeekMagicCoordinator(hass, coordinator_device, options)
         
         data = {
             "message": "Test Message",
-            "title": "Test Title",
+            # title is removed from expected logic
             "icon": "mdi:check",
             "image": "camera.test"
         }
@@ -80,26 +84,48 @@ class TestNotification:
         # Slot 0 should be CameraWidget because image starts with camera.
         assert layout.get_widget(0).config.widget_type == "camera"
         
-        # Slot 1 should be TextWidget with combined title and message
+        # Slot 1 should be TextWidget with message only
         text_widget = layout.get_widget(1)
         assert text_widget.config.widget_type == "text"
-        assert text_widget.config.options["text"] == "Test Title\nTest Message"
+        assert text_widget.config.options["text"] == "Test Message"
         assert text_widget.config.options["align"] == "center"
 
     @pytest.mark.asyncio
-    async def test_notification_layout_message_only(self, hass, coordinator_device, options):
-        """Test notification layout with message only."""
+    async def test_notification_layout_image_only(self, hass, coordinator_device, options):
+        """Test notification layout with no message (FullscreenLayout)."""
         coordinator = GeekMagicCoordinator(hass, coordinator_device, options)
         
         data = {
-            "message": "Test Message Only"
+            # No message provided
+            "image": "camera.test"
         }
         
         layout = coordinator._create_notification_layout(data)
-        assert isinstance(layout, HeroSimpleLayout)
+        assert isinstance(layout, FullscreenLayout)
         
-        text_widget = layout.get_widget(1)
-        assert text_widget.config.options["text"] == "Test Message Only"
+        # Slot 0 should be full screen camera
+        camera_widget = layout.get_widget(0)
+        assert camera_widget.config.widget_type == "camera"
+        assert camera_widget.config.options["fit"] == "contain"
+        
+    @pytest.mark.asyncio
+    async def test_notification_layout_icon_only(self, hass, coordinator_device, options):
+        """Test notification with no message and no image (Fullscreen Icon)."""
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, options)
+        
+        data = {
+            "icon": "mdi:alert"
+            # No message
+        }
+        
+        layout = coordinator._create_notification_layout(data)
+        assert isinstance(layout, FullscreenLayout)
+        
+        icon_widget = layout.get_widget(0)
+        assert icon_widget.config.widget_type == "entity"
+        assert icon_widget.config.options["icon"] == "mdi:alert"
+        assert icon_widget.config.options["size"] == "huge"
+
 
     @pytest.mark.asyncio
     async def test_render_notification_active(self, hass, coordinator_device, options):

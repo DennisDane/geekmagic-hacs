@@ -725,9 +725,52 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             data: Notification data
 
         Returns:
-            Configured HeroSimpleLayout
+            Layout: HeroSimpleLayout (with message) or FullscreenLayout (image only)
         """
-        # Use Hero Simple layout: Icon/Image in hero slot, Title/Message in footer
+        message = data.get("message")
+        
+        # Scenario 1: No message -> Fullscreen Layout (Image/Icon only)
+        if not message:
+            layout = FullscreenLayout()
+            # Apply theme if specified
+            theme_name = data.get("theme", THEME_CLASSIC)
+            layout.theme = get_theme(theme_name)
+            
+            hero_widget = None
+            image_url = data.get("image")
+            
+            if image_url and image_url.startswith("camera."):
+                 hero_widget = CameraWidget(
+                    WidgetConfig(
+                        widget_type="camera",
+                        slot=0,
+                        entity_id=image_url,
+                        options={"fit": "contain"} # contain ensures full image visible, cover fills screen
+                    )
+                 )
+            
+            if not hero_widget:
+                # Default to Icon
+                icon = data.get("icon", "mdi:bell-ring")
+                hero_widget = EntityWidget(
+                    WidgetConfig(
+                        widget_type="entity",
+                        slot=0,
+                        color=COLOR_CYAN,
+                        options={
+                            "icon": icon,
+                            "show_name": False,
+                            "show_state": False,
+                            "show_icon": True,
+                            "size": "huge",
+                            "show_panel": False # Clean fullscreen look
+                        }
+                    )
+                )
+            layout.set_widget(0, hero_widget)
+            return layout
+
+        # Scenario 2: Message exists -> Hero Simple Layout
         layout = HeroSimpleLayout()
         
         # Apply theme if specified
@@ -767,28 +810,16 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             )
         layout.set_widget(0, hero_widget)
 
-        # Slot 1 (Footer): Title and Message combined
-        title = data.get("title")
-        message = data.get("message", "")
-        
-        full_text = message
-        if title:
-            if message:
-                full_text = f"{title}\n{message}"
-            else:
-                full_text = title
-
-        # Footer Text Widget
+        # Slot 1 (Footer): Message only (Title removed per request)
         text_widget = TextWidget(
             WidgetConfig(
                 widget_type="text",
                 slot=1,
                 color=COLOR_WHITE,
                 options={
-                    "text": full_text,
+                    "text": message,
                     "size": "medium",
                     "align": "center",
-                    # "bold": True # Make it all bold for visibility? Or just average.
                 }
             )
         )
