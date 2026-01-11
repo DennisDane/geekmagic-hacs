@@ -1101,6 +1101,12 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
                     if entity_id:
                         camera_entity_ids.add(entity_id)
 
+        # Also fetch image for camera in notification
+        if self._notification_data:
+            image_url = self._notification_data.get("image")
+            if image_url and image_url.startswith("camera."):
+                camera_entity_ids.add(image_url)
+
         # Fetch images for each camera
         for entity_id in camera_entity_ids:
             try:
