@@ -354,6 +354,54 @@ class TestRenderer:
         assert png_bytes[:8] == b"\x89PNG\r\n\x1a\n"
         assert len(png_bytes) > 0
 
+    def test_to_jpeg_rotation(self):
+        """Test JPEG rotation parameter."""
+        renderer = Renderer()
+        img, draw = renderer.create_canvas()
+
+        # Draw asymmetric content so rotation is visible
+        draw.rectangle((0, 0, 100, 50), fill=(255, 0, 0))  # Red rectangle top-left
+
+        # Get output at different rotations
+        rot_0 = renderer.to_jpeg(img, quality=90, rotation=0)
+        rot_90 = renderer.to_jpeg(img, quality=90, rotation=90)
+        rot_180 = renderer.to_jpeg(img, quality=90, rotation=180)
+        rot_270 = renderer.to_jpeg(img, quality=90, rotation=270)
+
+        # All should be valid JPEGs
+        for data in [rot_0, rot_90, rot_180, rot_270]:
+            assert data[:3] == b"\xff\xd8\xff"
+
+        # Different rotations should produce different output
+        assert rot_0 != rot_90
+        assert rot_0 != rot_180
+        assert rot_0 != rot_270
+        assert rot_90 != rot_180
+
+    def test_to_png_rotation(self):
+        """Test PNG rotation parameter."""
+        renderer = Renderer()
+        img, draw = renderer.create_canvas()
+
+        # Draw asymmetric content so rotation is visible
+        draw.rectangle((0, 0, 100, 50), fill=(255, 0, 0))  # Red rectangle top-left
+
+        # Get output at different rotations
+        rot_0 = renderer.to_png(img, rotation=0)
+        rot_90 = renderer.to_png(img, rotation=90)
+        rot_180 = renderer.to_png(img, rotation=180)
+        rot_270 = renderer.to_png(img, rotation=270)
+
+        # All should be valid PNGs
+        for data in [rot_0, rot_90, rot_180, rot_270]:
+            assert data[:8] == b"\x89PNG\r\n\x1a\n"
+
+        # Different rotations should produce different output
+        assert rot_0 != rot_90
+        assert rot_0 != rot_180
+        assert rot_0 != rot_270
+        assert rot_90 != rot_180
+
     def test_dim_color(self):
         """Test color dimming."""
         renderer = Renderer()
