@@ -39,6 +39,7 @@ from .const import (
     LAYOUT_HERO,
     LAYOUT_HERO_BL,
     LAYOUT_HERO_BR,
+    LAYOUT_HERO_SIMPLE,
     LAYOUT_HERO_TL,
     LAYOUT_HERO_TR,
     LAYOUT_SIDEBAR_LEFT,
@@ -56,6 +57,7 @@ from .layouts.corner_hero import HeroCornerBL, HeroCornerBR, HeroCornerTL, HeroC
 from .layouts.fullscreen import FullscreenLayout
 from .layouts.grid import Grid2x2, Grid2x3, Grid3x2, Grid3x3
 from .layouts.hero import HeroLayout
+from .layouts.hero_simple import HeroSimpleLayout
 from .layouts.sidebar import SidebarLeft, SidebarRight
 from .layouts.split import (
     SplitHorizontal,
@@ -95,6 +97,7 @@ LAYOUT_CLASSES = {
     LAYOUT_GRID_3X2: Grid3x2,
     LAYOUT_GRID_3X3: Grid3x3,
     LAYOUT_HERO: HeroLayout,
+    LAYOUT_HERO_SIMPLE: HeroSimpleLayout,
     LAYOUT_SPLIT_H: SplitHorizontal,
     LAYOUT_SPLIT_H_1_2: SplitHorizontal1To2,
     LAYOUT_SPLIT_H_2_1: SplitHorizontal2To1,
@@ -722,10 +725,10 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             data: Notification data
 
         Returns:
-            Configured HeroLayout
+            Configured HeroSimpleLayout
         """
-        # Use Hero layout: Icon/Image in hero slot, Title/Message in footer
-        layout = HeroLayout(footer_slots=3, hero_ratio=0.6, padding=8, gap=8)
+        # Use Hero Simple layout: Icon/Image in hero slot, Title/Message in footer
+        layout = HeroSimpleLayout()
         
         # Apply theme if specified
         theme_name = data.get("theme", THEME_CLASSIC)
@@ -735,12 +738,6 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
         hero_widget = None
         image_url = data.get("image")
         if image_url:
-            # If it's a full URL, we might need to fetch it? 
-            # For now, let's assume CameraWidget can handle it if we passed it cleverly,
-            # but actually CameraWidget expects an entity_id.
-            # So we'll stick to icons for this version unless we add "image from url" widget.
-            # OR we use the "camera" widget if the user passed an entity_id in the image field?
-            # Let's support entity_id if they passed one in "image"
              if image_url.startswith("camera."):
                  hero_widget = CameraWidget(
                     WidgetConfig(
@@ -770,50 +767,32 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             )
         layout.set_widget(0, hero_widget)
 
-        # Slot 1 (Footer Top): Title
+        # Slot 1 (Footer): Title and Message combined
         title = data.get("title")
-        if title:
-            title_widget = TextWidget(
-                WidgetConfig(
-                    widget_type="text",
-                    slot=1,
-                    color=COLOR_WHITE,
-                    options={
-                        "text": title,
-                        "size": "medium",
-                        "align": "center",
-                        "bold": True
-                    }
-                )
-            )
-            layout.set_widget(1, title_widget)
-
-        # Slot 2 (Footer Middle): Message
         message = data.get("message", "")
-        msg_widget = TextWidget(
+        
+        full_text = message
+        if title:
+            if message:
+                full_text = f"{title}\n{message}"
+            else:
+                full_text = title
+
+        # Footer Text Widget
+        text_widget = TextWidget(
             WidgetConfig(
                 widget_type="text",
-                slot=2,
-                color=COLOR_WHITE,  
+                slot=1,
+                color=COLOR_WHITE,
                 options={
-                    "text": message,
-                    "size": "small",
-                    "align": "center"
+                    "text": full_text,
+                    "size": "medium",
+                    "align": "center",
+                    # "bold": True # Make it all bold for visibility? Or just average.
                 }
             )
         )
-        layout.set_widget(2, msg_widget)
-        
-        # Slot 3 (Footer Bottom): Time
-        time_widget = ClockWidget(
-             WidgetConfig(
-                widget_type="clock",
-                slot=3,
-                color=COLOR_GRAY,
-                options={"show_date": False, "show_seconds": True, "size": "tiny"}
-            )
-        )
-        layout.set_widget(3, time_widget)
+        layout.set_widget(1, text_widget)
 
         return layout
 

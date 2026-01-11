@@ -76,13 +76,30 @@ class TestNotification:
         
         layout = coordinator._create_notification_layout(data)
         
-        assert isinstance(layout, HeroLayout)
+        assert isinstance(layout, HeroSimpleLayout)
         # Slot 0 should be CameraWidget because image starts with camera.
         assert layout.get_widget(0).config.widget_type == "camera"
-        # Slot 1 should be Title
-        assert layout.get_widget(1).config.options["text"] == "Test Title"
-        # Slot 2 should be Message
-        assert layout.get_widget(2).config.options["text"] == "Test Message"
+        
+        # Slot 1 should be TextWidget with combined title and message
+        text_widget = layout.get_widget(1)
+        assert text_widget.config.widget_type == "text"
+        assert text_widget.config.options["text"] == "Test Title\nTest Message"
+        assert text_widget.config.options["align"] == "center"
+
+    @pytest.mark.asyncio
+    async def test_notification_layout_message_only(self, hass, coordinator_device, options):
+        """Test notification layout with message only."""
+        coordinator = GeekMagicCoordinator(hass, coordinator_device, options)
+        
+        data = {
+            "message": "Test Message Only"
+        }
+        
+        layout = coordinator._create_notification_layout(data)
+        assert isinstance(layout, HeroSimpleLayout)
+        
+        text_widget = layout.get_widget(1)
+        assert text_widget.config.options["text"] == "Test Message Only"
 
     @pytest.mark.asyncio
     async def test_render_notification_active(self, hass, coordinator_device, options):

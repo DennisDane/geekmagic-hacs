@@ -73,6 +73,7 @@ LAYOUT_HERO_TL = "hero_corner_tl"  # 2x2 hero top-left
 LAYOUT_HERO_TR = "hero_corner_tr"  # 2x2 hero top-right
 LAYOUT_HERO_BL = "hero_corner_bl"  # 2x2 hero bottom-left
 LAYOUT_HERO_BR = "hero_corner_br"  # 2x2 hero bottom-right
+LAYOUT_HERO_SIMPLE = "hero_simple"  # 1 large hero + 1 footer
 LAYOUT_FULLSCREEN = "fullscreen"  # Single widget, full display, no padding
 
 # Widget types
@@ -108,6 +109,7 @@ LAYOUT_SLOT_COUNTS = {
     LAYOUT_HERO_TR: 6,
     LAYOUT_HERO_BL: 6,
     LAYOUT_HERO_BR: 6,
+    LAYOUT_HERO_SIMPLE: 2,
     LAYOUT_FULLSCREEN: 1,
 }
 
