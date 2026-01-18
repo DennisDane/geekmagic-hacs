@@ -101,6 +101,7 @@ Special thanks to:
 
 <p align="center">
   <img src="samples/layouts/layout_hero.png" alt="Hero" width="200">
+  <img src="samples/layouts/layout_hero_simple.png" alt="Hero Simple" width="200">
   <img src="samples/layouts/layout_hero_corner_tl.png" alt="Hero TL" width="200">
   <img src="samples/layouts/layout_hero_corner_tr.png" alt="Hero TR" width="200">
   <img src="samples/layouts/layout_hero_corner_bl.png" alt="Hero BL" width="200">
@@ -137,7 +138,7 @@ Choose from **10 built-in themes** that go beyond just colors - affecting typogr
 ## Features
 
 - **12 widget types**: Clock, entity, media, chart, text, gauge, progress, weather, status, camera, and more
-- **18 layout options**: Fullscreen, grids, splits, hero variants, sidebars, and more
+- **19 layout options**: Fullscreen, grids, splits, hero variants, sidebars, and more
 - **10 visual themes**: Classic, Minimal, Neon, Retro, Soft, Light, Ocean, Sunset, Forest, Candy
 - **Visual configuration**: Custom sidebar panel with live preview
 - **Global views**: Create views once, assign to multiple devices
@@ -277,6 +278,7 @@ Each GeekMagic device creates the following entities for control and monitoring:
 | `three_column` | 3 | 3 vertical columns |
 | `three_row` | 3 | 3 horizontal rows |
 | `hero` | 4 | Large hero + 3 footer widgets |
+| `hero_simple` | 2 | Large hero + 1 footer widget |
 | `hero_corner_tl` | 6 | 2x2 hero top-left + 4 small widgets |
 | `hero_corner_tr` | 6 | 2x2 hero top-right + 4 small widgets |
 | `hero_corner_bl` | 6 | 2x2 hero bottom-left + 4 small widgets |

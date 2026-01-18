@@ -43,6 +43,7 @@ from custom_components.geekmagic.layouts.corner_hero import (
 from custom_components.geekmagic.layouts.fullscreen import FullscreenLayout
 from custom_components.geekmagic.layouts.grid import Grid2x2, Grid2x3, Grid3x2, Grid3x3
 from custom_components.geekmagic.layouts.hero import HeroLayout
+from custom_components.geekmagic.layouts.hero_simple import HeroSimpleLayout
 from custom_components.geekmagic.layouts.sidebar import SidebarLeft, SidebarRight
 from custom_components.geekmagic.layouts.split import (
     SplitHorizontal,
@@ -1543,6 +1544,7 @@ def generate_layout_samples(renderer: Renderer, output_dir: Path) -> None:
         ("three_column", ThreeColumnLayout()),
         ("three_row", ThreeRowLayout()),
         ("hero", HeroLayout()),
+        ("hero_simple", HeroSimpleLayout()),
         ("sidebar_left", SidebarLeft()),
         ("sidebar_right", SidebarRight()),
         ("hero_corner_tl", HeroCornerTL()),
