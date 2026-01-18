@@ -861,29 +861,31 @@ let g = class extends I {
         var e, t, i;
         return d`
               <ha-card class="view-card" @click=${() => this._editView(s)}>
-                <div class="view-card-preview">
-                  ${this._viewPreviews.has(s.id) ? d`<img
-                        class="view-preview-image"
-                        src="data:image/png;base64,${this._viewPreviews.get(s.id)}"
-                        alt="${s.name}"
-                      />` : d`<div class="view-preview-placeholder">
-                        <ha-circular-progress indeterminate size="small"></ha-circular-progress>
-                      </div>`}
-                </div>
-                <div class="card-header">
-                  <h3>${s.name}</h3>
-                  <ha-icon-button
-                    .path=${"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"}
-                    @click=${(r) => {
+                <div class="view-card-content">
+                  <div class="view-card-preview">
+                    ${this._viewPreviews.has(s.id) ? d`<img
+                          class="view-preview-image"
+                          src="data:image/png;base64,${this._viewPreviews.get(s.id)}"
+                          alt="${s.name}"
+                        />` : d`<div class="view-preview-placeholder">
+                          <ha-circular-progress indeterminate size="small"></ha-circular-progress>
+                        </div>`}
+                  </div>
+                  <div class="view-card-info">
+                    <div class="view-card-header">
+                      <h3>${s.name}</h3>
+                      <ha-icon-button
+                        .path=${"M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z"}
+                        @click=${(r) => {
           r.stopPropagation(), this._deleteView(s);
         }}
-                  ></ha-icon-button>
-                </div>
-                <div class="card-content">
-                  <div class="card-meta">
-                    ${((t = (e = this._config) == null ? void 0 : e.layout_types[s.layout]) == null ? void 0 : t.name) || s.layout}
-                    &bull; ${((i = this._config) == null ? void 0 : i.themes[s.theme]) || s.theme}
-                    &bull; ${s.widgets.length} widgets
+                      ></ha-icon-button>
+                    </div>
+                    <div class="card-meta">
+                      ${((t = (e = this._config) == null ? void 0 : e.layout_types[s.layout]) == null ? void 0 : t.name) || s.layout}
+                      &bull; ${((i = this._config) == null ? void 0 : i.themes[s.theme]) || s.theme}
+                      &bull; ${s.widgets.length} widgets
+                    </div>
                   </div>
                 </div>
               </ha-card>
@@ -1618,29 +1620,59 @@ g.styles = ue`
       --ha-card-background: var(--secondary-background-color);
     }
 
+    .view-card-content {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      gap: 16px;
+    }
+
     .view-card-preview {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      flex-shrink: 0;
+      width: 80px;
+      height: 80px;
       background: #000;
-      border-radius: 12px 12px 0 0;
+      border-radius: 8px;
     }
 
     .view-preview-image {
-      width: 120px;
-      height: 120px;
-      border-radius: 6px;
+      width: 80px;
+      height: 80px;
+      border-radius: 8px;
       object-fit: contain;
     }
 
     .view-preview-placeholder {
-      width: 120px;
-      height: 120px;
+      width: 80px;
+      height: 80px;
       display: flex;
       align-items: center;
       justify-content: center;
       color: var(--secondary-text-color);
+    }
+
+    .view-card-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .view-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .view-card-header h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .card-header {
