@@ -53,6 +53,27 @@ Special thanks to:
   <img src="samples/12_security.png" alt="Security" width="120">
 </p>
 
+## Binary Sensor States
+
+Binary sensors display human-readable states based on their `device_class`:
+
+<p align="center">
+  <img src="samples/16_binary_sensors.png" alt="Binary Sensor States" width="240">
+</p>
+
+| Device Class | On State | Off State |
+|--------------|----------|-----------|
+| `door` / `window` / `garage_door` | Open | Closed |
+| `motion` / `occupancy` | Detected | Clear |
+| `presence` | Home | Not home |
+| `lock` | Unlocked | Locked |
+| `connectivity` | Connected | Disconnected |
+| `battery` | Low | Normal |
+| `smoke` / `gas` / `carbon_monoxide` | Detected | Clear |
+| `moisture` | Wet | Dry |
+| `running` | Running | Not running |
+| `power` | On | Off |
+
 ## Widget Gallery
 
 | Widget | 1x1 | 1x2 | 2x1 | 2x2 | 2x3 | 3x3 |

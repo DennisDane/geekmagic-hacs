@@ -12,6 +12,7 @@ from ..const import (
 from .base import Widget, WidgetConfig
 from .component_helpers import CenteredValue, IconValue
 from .components import THEME_TEXT_PRIMARY, THEME_TEXT_SECONDARY, Component, Panel
+from .helpers import translate_binary_state
 
 if TYPE_CHECKING:
     from ..render_context import RenderContext
@@ -51,6 +52,9 @@ class EntityWidget(Widget):
             name = self.config.label or self.config.entity_id or PLACEHOLDER_NAME
         else:
             value = entity.state
+            # Translate binary sensor states (e.g., "on" -> "Open" for door sensors)
+            if entity.entity_id.startswith("binary_sensor."):
+                value = translate_binary_state(value, entity.device_class)
             # Apply precision formatting if specified and value is numeric
             if self.precision is not None:
                 try:

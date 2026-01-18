@@ -14,6 +14,90 @@ if TYPE_CHECKING:
 # Includes common affirmative states across different entity types
 ON_STATES = frozenset({"on", "true", "home", "locked", "open", "unlocked", "1"})
 
+# Binary sensor device class state translations
+# Maps device_class to (on_state, off_state) display strings
+# Aligned with Home Assistant core: homeassistant/components/binary_sensor/strings.json
+BINARY_SENSOR_TRANSLATIONS: dict[str, tuple[str, str]] = {
+    # Door/window/opening sensors
+    "door": ("Open", "Closed"),
+    "garage_door": ("Open", "Closed"),
+    "window": ("Open", "Closed"),
+    "opening": ("Open", "Closed"),
+    # Motion/presence sensors
+    "motion": ("Detected", "Clear"),
+    "presence": ("Home", "Not home"),
+    "occupancy": ("Detected", "Clear"),
+    # Connectivity
+    "connectivity": ("Connected", "Disconnected"),
+    # Power/plug
+    "plug": ("Plugged in", "Unplugged"),
+    "power": ("On", "Off"),
+    # Lock (inverted - on = unlocked = bad for security)
+    "lock": ("Unlocked", "Locked"),
+    # Safety/problem
+    "safety": ("Unsafe", "Safe"),
+    "problem": ("Problem", "OK"),
+    "tamper": ("Tampering detected", "Clear"),
+    # Battery
+    "battery": ("Low", "Normal"),
+    "battery_charging": ("Charging", "Not charging"),
+    # Environmental detection
+    "carbon_monoxide": ("Detected", "Clear"),
+    "smoke": ("Detected", "Clear"),
+    "gas": ("Detected", "Clear"),
+    "moisture": ("Wet", "Dry"),
+    "cold": ("Cold", "Normal"),
+    "heat": ("Hot", "Normal"),
+    "light": ("Detected", "Clear"),
+    # Activity detection
+    "running": ("Running", "Not running"),
+    "moving": ("Moving", "Not moving"),
+    "vibration": ("Detected", "Clear"),
+    "sound": ("Detected", "Clear"),
+    # Updates
+    "update": ("Update available", "Up-to-date"),
+}
+
+
+def translate_binary_state(
+    state: str,
+    device_class: str | None,
+) -> str:
+    """Translate binary sensor state based on device class.
+
+    For binary sensors, converts generic "on"/"off" states to
+    human-readable values based on the device_class attribute.
+
+    Examples:
+        - door + "on" -> "Open"
+        - door + "off" -> "Closed"
+        - motion + "on" -> "Detected"
+        - motion + "off" -> "Clear"
+
+    Args:
+        state: Raw entity state ("on", "off", etc.)
+        device_class: Binary sensor device class (door, motion, etc.)
+
+    Returns:
+        Translated state string, or original state if no translation available
+    """
+    if device_class is None:
+        return state
+
+    translations = BINARY_SENSOR_TRANSLATIONS.get(device_class)
+    if translations is None:
+        return state
+
+    on_state, off_state = translations
+    state_lower = state.lower()
+
+    if state_lower == "on":
+        return on_state
+    if state_lower == "off":
+        return off_state
+
+    return state
+
 
 def truncate_text(
     text: str,
