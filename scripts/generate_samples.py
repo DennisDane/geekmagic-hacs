@@ -74,6 +74,7 @@ from scripts.mock_hass import (
     create_clock_states,
     create_energy_states,
     create_fitness_states,
+    create_media_player_paused_states,
     create_media_player_states,
     create_network_states,
     create_security_states,
@@ -837,6 +838,30 @@ def generate_media_player(renderer: Renderer, output_dir: Path) -> None:
 
     layout.render(renderer, draw, build_widget_states(layout, hass, images=images))
     save_image(renderer, img, "05_media_player", output_dir)
+
+
+def generate_media_player_paused(renderer: Renderer, output_dir: Path) -> None:
+    """Generate paused media player dashboard showing centered pause icon."""
+    hass = MockHass()
+    create_media_player_paused_states(hass)
+
+    layout = FullscreenLayout(padding=0)
+    img, draw = renderer.create_canvas()
+
+    # Media widget in paused state
+    media = MediaWidget(
+        WidgetConfig(
+            widget_type="media",
+            slot=0,
+            entity_id="media_player.living_room",
+            color=COLOR_CYAN,
+            options={"show_artist": True, "show_progress": True, "show_album_art": True},
+        )
+    )
+    layout.set_widget(0, media)
+
+    layout.render(renderer, draw, build_widget_states(layout, hass))
+    save_image(renderer, img, "05b_media_player_paused", output_dir)
 
 
 def generate_energy_monitor(renderer: Renderer, output_dir: Path) -> None:
@@ -1771,6 +1796,7 @@ def main() -> None:
     generate_weather(renderer, output_dir)
     generate_server_stats(renderer, output_dir)
     generate_media_player(renderer, output_dir)
+    generate_media_player_paused(renderer, output_dir)
     generate_energy_monitor(renderer, output_dir)
     generate_fitness(renderer, output_dir)
     generate_clock_dashboard(renderer, output_dir)

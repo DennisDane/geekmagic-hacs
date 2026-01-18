@@ -340,18 +340,18 @@ class MediaIdle(Component):
 
     def render(self, ctx: RenderContext, x: int, y: int, width: int, height: int) -> None:
         """Render paused state."""
-        # Calculate icon size
-        icon_size = max(24, int(height * 0.25))
+        # Calculate icon size - larger for better visibility
+        icon_size = max(32, int(height * 0.3))
 
-        # Build component tree
+        # Build component tree - use gap instead of Spacer to keep elements grouped
         Column(
             children=[
                 Icon("pause", size=icon_size, color=THEME_TEXT_SECONDARY),
-                Spacer(min_size=int(height * 0.08)),
-                Text("PAUSED", font="small", color=THEME_TEXT_SECONDARY),
+                Text("PAUSED", font="regular", color=THEME_TEXT_SECONDARY),
             ],
             align="center",
             justify="center",
+            gap=int(height * 0.06),
         ).render(ctx, x, y, width, height)
 
 
@@ -375,7 +375,7 @@ class MediaWidget(Widget):
         """
         entity = state.entity
 
-        if entity is None or entity.state in ("off", "unavailable", "unknown", "idle"):
+        if entity is None or entity.state in ("off", "unavailable", "unknown", "idle", "paused"):
             return MediaIdle()
 
         # Calculate current position (accounts for elapsed playback time)

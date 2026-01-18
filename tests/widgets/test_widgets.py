@@ -310,6 +310,35 @@ class TestMediaWidget:
         widget.render(ctx, state)
         assert img.size == (480, 480)
 
+    def test_render_paused(self, renderer, canvas, rect, hass):
+        """Test rendering paused state shows MediaIdle (centered pause icon)."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+
+        # Set up media player in paused state
+        hass.states.async_set(
+            "media_player.living_room",
+            "paused",
+            {
+                "media_title": "Test Song",
+                "media_artist": "Test Artist",
+            },
+        )
+
+        config = WidgetConfig(
+            widget_type="media",
+            slot=0,
+            entity_id="media_player.living_room",
+        )
+        widget = MediaWidget(config)
+        state = _build_widget_state(hass, "media_player.living_room")
+        component = widget.render(ctx, state)
+
+        # Verify it returns MediaIdle component (not AlbumArt or NowPlaying)
+        from custom_components.geekmagic.widgets.media import MediaIdle
+
+        assert isinstance(component, MediaIdle)
+
     def test_render_playing(self, renderer, canvas, rect, hass):
         """Test rendering playing state."""
         img, draw = canvas

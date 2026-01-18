@@ -236,6 +236,22 @@ def create_media_player_states(hass: MockHass) -> None:
     )
 
 
+def create_media_player_paused_states(hass: MockHass) -> None:
+    """Create mock states for paused media player dashboard."""
+    hass.states.set(
+        "media_player.living_room",
+        "paused",
+        {
+            "friendly_name": "Living Room",
+            "media_title": "Bohemian Rhapsody",
+            "media_artist": "Queen",
+            "media_album_name": "A Night at the Opera",
+            "media_position": 145,
+            "media_duration": 354,
+        },
+    )
+
+
 def create_energy_states(hass: MockHass) -> None:
     """Create mock states for energy dashboard."""
     hass.states.set(
