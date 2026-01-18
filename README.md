@@ -241,8 +241,10 @@ Each GeekMagic device creates the following entities for control and monitoring:
 |--------|------|-------------|
 | `number.geekmagic_brightness` | Number | Display brightness (0-100%) |
 | `number.geekmagic_refresh_interval` | Number | Update interval (5-300 seconds) |
+| `number.geekmagic_cycle_interval` | Number | View cycle interval (0 = manual only) |
 | `select.geekmagic_mode` | Select | Device mode (Custom Views, Clock, Weather, System Info) |
 | `select.geekmagic_current_view` | Select | Currently displayed view (when in Custom mode) |
+| `switch.geekmagic_view_cycling` | Switch | Enable/disable automatic view cycling |
 
 ### Sensors
 
