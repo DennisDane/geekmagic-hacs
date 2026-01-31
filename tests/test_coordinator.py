@@ -1,19 +1,24 @@
 """Tests for GeekMagic coordinator multi-screen support."""
 
-from unittest.mock import AsyncMock, MagicMock
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.geekmagic.const import (
+    BACKOFF_LOG_INTERVAL,
     CONF_LAYOUT,
     CONF_REFRESH_INTERVAL,
     CONF_SCREEN_CYCLE_INTERVAL,
     CONF_SCREENS,
     CONF_WIDGETS,
+    DEFAULT_REFRESH_INTERVAL,
     LAYOUT_GRID_2X2,
     LAYOUT_SPLIT_H,
+    MAX_BACKOFF_MULTIPLIER,
 )
 from custom_components.geekmagic.coordinator import GeekMagicCoordinator
+from custom_components.geekmagic.device import ConnectionResult
 
 
 @pytest.fixture
@@ -451,3 +456,293 @@ class TestExtractNumericValues:
         values = extract_numeric_values(history)
 
         assert values == []
+
+
+class TestCoordinatorBackoff:
+    """Test exponential backoff for offline device handling.
+
+    Issue #36: Excessive logging when device goes offline.
+    These tests verify the backoff mechanism reduces retry frequency
+    and log spam when a device is unreachable.
+    """
+
+    @pytest.fixture
+    def backoff_device(self):
+        """Create mock device with test_connection support."""
+        device = MagicMock()
+        device.host = "192.168.1.100"
+        device.model = "unknown"
+        device.upload_and_display = AsyncMock()
+        device.set_brightness = AsyncMock()
+        device.get_brightness = AsyncMock(return_value=50)
+        device.get_state = AsyncMock(return_value=None)
+        device.get_space = AsyncMock(return_value=None)
+        device.test_connection = AsyncMock(
+            return_value=ConnectionResult(success=True, error=None, message="OK")
+        )
+        return device
+
+    @pytest.fixture
+    def simple_options(self):
+        """Create simple single-screen options."""
+        return {
+            CONF_REFRESH_INTERVAL: 10,
+            CONF_SCREENS: [
+                {
+                    "name": "Test",
+                    CONF_LAYOUT: LAYOUT_GRID_2X2,
+                    CONF_WIDGETS: [{"type": "clock", "slot": 0}],
+                }
+            ],
+        }
+
+    def test_initial_state_no_backoff(self, hass, backoff_device, simple_options):
+        """Test that coordinator starts with no backoff state."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        assert coordinator._consecutive_failures == 0
+        assert coordinator._device_offline is False
+        assert coordinator._base_update_interval == 10
+        assert coordinator.update_interval == timedelta(seconds=10)
+
+    def test_apply_backoff_exponential(self, hass, backoff_device, simple_options):
+        """Test that backoff increases exponentially."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Simulate failures and check backoff progression
+        # Failure 1: multiplier = 2^1 = 2
+        coordinator._consecutive_failures = 1
+        coordinator._apply_backoff()
+        assert coordinator.update_interval == timedelta(seconds=20)
+
+        # Failure 2: multiplier = 2^2 = 4
+        coordinator._consecutive_failures = 2
+        coordinator._apply_backoff()
+        assert coordinator.update_interval == timedelta(seconds=40)
+
+        # Failure 3: multiplier = 2^3 = 8
+        coordinator._consecutive_failures = 3
+        coordinator._apply_backoff()
+        assert coordinator.update_interval == timedelta(seconds=80)
+
+        # Failure 4: multiplier = 2^4 = 16
+        coordinator._consecutive_failures = 4
+        coordinator._apply_backoff()
+        assert coordinator.update_interval == timedelta(seconds=160)
+
+    def test_apply_backoff_capped_at_max(self, hass, backoff_device, simple_options):
+        """Test that backoff is capped at MAX_BACKOFF_MULTIPLIER."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Simulate many failures - should be capped at max
+        coordinator._consecutive_failures = 100
+        coordinator._apply_backoff()
+
+        expected_interval = DEFAULT_REFRESH_INTERVAL * MAX_BACKOFF_MULTIPLIER
+        assert coordinator.update_interval == timedelta(seconds=expected_interval)
+
+    def test_reset_backoff(self, hass, backoff_device, simple_options):
+        """Test that reset_backoff restores normal state."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Set up backoff state
+        coordinator._consecutive_failures = 5
+        coordinator._device_offline = True
+        coordinator._apply_backoff()
+        assert coordinator.update_interval != timedelta(seconds=10)
+
+        # Reset backoff
+        coordinator._reset_backoff()
+
+        assert coordinator._consecutive_failures == 0
+        assert coordinator._device_offline is False
+        assert coordinator.update_interval == timedelta(seconds=10)
+
+    @patch("custom_components.geekmagic.coordinator._LOGGER")
+    def test_log_offline_status_first_failure(
+        self, mock_logger, hass, backoff_device, simple_options
+    ):
+        """Test that first failure logs at warning level."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        coordinator._consecutive_failures = 1
+        coordinator._log_offline_status("Connection refused")
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args[0][0]
+        assert "is offline" in call_args
+        assert "exponential backoff" in call_args
+
+    @patch("custom_components.geekmagic.coordinator._LOGGER")
+    def test_log_offline_status_subsequent_debug(
+        self, mock_logger, hass, backoff_device, simple_options
+    ):
+        """Test that subsequent failures log at debug level."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Reset mock to ignore constructor calls
+        mock_logger.reset_mock()
+
+        coordinator._consecutive_failures = 2
+        coordinator._log_offline_status("Connection refused")
+
+        # Check the specific debug call was made
+        mock_logger.debug.assert_called_with(
+            "GeekMagic device %s offline (attempt %d): %s",
+            "192.168.1.100",
+            2,
+            "Connection refused",
+        )
+        mock_logger.warning.assert_not_called()
+
+    @patch("custom_components.geekmagic.coordinator._LOGGER")
+    def test_log_offline_status_periodic_summary(
+        self, mock_logger, hass, backoff_device, simple_options
+    ):
+        """Test that periodic summary logs at warning level."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+        coordinator.update_interval = timedelta(seconds=180)
+
+        # At BACKOFF_LOG_INTERVAL failures, should log summary
+        coordinator._consecutive_failures = BACKOFF_LOG_INTERVAL
+        coordinator._log_offline_status("Connection refused")
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args[0][0]
+        assert "still offline" in call_args
+        assert "attempts" in call_args
+
+    @patch("custom_components.geekmagic.coordinator._LOGGER")
+    def test_log_connection_error_first_failure(
+        self, mock_logger, hass, backoff_device, simple_options
+    ):
+        """Test that first connection error logs at warning level."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        coordinator._consecutive_failures = 1
+        coordinator._log_connection_error(Exception("Connection refused"))
+
+        mock_logger.warning.assert_called_once()
+        call_args = mock_logger.warning.call_args[0][0]
+        assert "connection failed" in call_args
+
+    @patch("custom_components.geekmagic.coordinator._LOGGER")
+    def test_log_connection_error_subsequent_debug(
+        self, mock_logger, hass, backoff_device, simple_options
+    ):
+        """Test that subsequent errors log at debug level."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Reset mock to ignore constructor calls
+        mock_logger.reset_mock()
+
+        coordinator._consecutive_failures = 5
+        test_exception = Exception("Connection refused")
+        coordinator._log_connection_error(test_exception)
+
+        # Check the specific debug call was made
+        mock_logger.debug.assert_called_with(
+            "GeekMagic update failed (attempt %d): %s",
+            5,
+            test_exception,
+        )
+        mock_logger.warning.assert_not_called()
+
+    def test_update_options_preserves_base_interval(self, hass, backoff_device, simple_options):
+        """Test that update_options updates base interval for backoff."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+        assert coordinator._base_update_interval == 10
+
+        # Update with new interval
+        new_options = simple_options.copy()
+        new_options[CONF_REFRESH_INTERVAL] = 30
+        coordinator.update_options(new_options)
+
+        assert coordinator._base_update_interval == 30
+        assert coordinator.update_interval == timedelta(seconds=30)
+
+    @pytest.mark.asyncio
+    async def test_device_offline_skips_rendering(self, hass, backoff_device, simple_options):
+        """Test that offline device skips expensive rendering.
+
+        When device is marked offline, coordinator should only do
+        a lightweight connectivity check instead of full render cycle.
+        """
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Mark device as offline
+        coordinator._device_offline = True
+        coordinator._consecutive_failures = 5
+
+        # Set up failed connection test
+        backoff_device.test_connection = AsyncMock(
+            return_value=ConnectionResult(
+                success=False, error="connection_refused", message="Connection refused"
+            )
+        )
+
+        # Update should fail without rendering
+        with pytest.raises(UpdateFailed) as exc_info:
+            await coordinator._async_update_data()
+
+        assert "Device offline" in str(exc_info.value)
+
+        # Verify expensive operations were NOT called
+        backoff_device.upload_and_display.assert_not_called()
+
+        # Verify connectivity check WAS called
+        backoff_device.test_connection.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_device_comes_back_online(self, hass, backoff_device, simple_options):
+        """Test that device recovery resets backoff and resumes updates."""
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Mark device as offline with significant backoff
+        coordinator._device_offline = True
+        coordinator._consecutive_failures = 10
+        coordinator._apply_backoff()
+
+        # Set up successful connection test
+        backoff_device.test_connection = AsyncMock(
+            return_value=ConnectionResult(success=True, error=None, message="OK")
+        )
+
+        # Mock the rendering to succeed
+        with patch.object(coordinator, "_render_display", return_value=(b"jpeg", b"png")):
+            result = await coordinator._async_update_data()
+
+        # Verify backoff was reset
+        assert coordinator._consecutive_failures == 0
+        assert coordinator._device_offline is False
+        assert coordinator.update_interval == timedelta(seconds=10)
+
+        # Verify update succeeded
+        assert result["success"] is True
+
+    @pytest.mark.asyncio
+    async def test_first_failure_marks_offline(self, hass, backoff_device, simple_options):
+        """Test that first update failure marks device offline and applies backoff."""
+        from homeassistant.helpers.update_coordinator import UpdateFailed
+
+        coordinator = GeekMagicCoordinator(hass, backoff_device, simple_options)
+
+        # Mock upload to fail
+        backoff_device.upload_and_display = AsyncMock(side_effect=Exception("Connection refused"))
+
+        # Mock the rendering to succeed but upload fails
+        with (
+            patch.object(coordinator, "_render_display", return_value=(b"jpeg", b"png")),
+            pytest.raises(UpdateFailed),
+        ):
+            await coordinator._async_update_data()
+
+        # Verify offline state was set
+        assert coordinator._device_offline is True
+        assert coordinator._consecutive_failures == 1
+        assert coordinator._last_update_success is False
+
+        # Verify backoff was applied
+        assert coordinator.update_interval == timedelta(seconds=20)  # 10 * 2^1

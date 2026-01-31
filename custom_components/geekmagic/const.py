@@ -14,6 +14,12 @@ DISPLAY_HEIGHT = 240
 # Default settings
 DEFAULT_REFRESH_INTERVAL = 10  # seconds
 DEFAULT_JPEG_QUALITY = 92  # High quality for crisp display
+
+# Backoff settings for offline device handling
+# When device is unreachable, increase update interval exponentially
+# to reduce log spam and resource usage
+MAX_BACKOFF_MULTIPLIER = 18  # Max ~3 minutes between retries (10s * 18 = 180s)
+BACKOFF_LOG_INTERVAL = 30  # Log summary every 30 failures (~5 min at max backoff)
 DEFAULT_DISPLAY_ROTATION = 0  # No rotation
 MAX_IMAGE_SIZE = 400 * 1024  # 400KB max size for device uploads
 
