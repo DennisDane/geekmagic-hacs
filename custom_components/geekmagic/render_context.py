@@ -183,6 +183,21 @@ class RenderContext:
         """
         return self.size_category == SizeCategory.LARGE
 
+    def _resolve_color(self, color: tuple[int, int, int]) -> tuple[int, int, int]:
+        """Resolve theme-aware color sentinels to actual colors.
+
+        Components use sentinel values like (-1, -1, -1) for THEME_TEXT_PRIMARY
+        and (-2, -2, -2) for THEME_TEXT_SECONDARY. This method resolves them
+        to actual theme colors so they work correctly when passed directly
+        to drawing methods.
+        """
+        if color[0] < 0:
+            if color == (-1, -1, -1):  # THEME_TEXT_PRIMARY
+                return self.theme.text_primary
+            if color == (-2, -2, -2):  # THEME_TEXT_SECONDARY
+                return self.theme.text_secondary
+        return color
+
     def _abs_point(self, x: int, y: int) -> tuple[int, int]:
         """Convert local point to absolute canvas coordinates."""
         return (self._x1 + x, self._y1 + y)
@@ -374,13 +389,16 @@ class RenderContext:
             text: Text to draw
             position: (x, y) in local coordinates
             font: Font to use (default: context-scaled regular)
-            color: RGB color tuple
+            color: RGB color tuple (supports theme sentinel values)
             anchor: Text anchor (e.g., "mm" for center)
         """
         if font is None:
             font = self.get_font("regular")
         abs_pos = self._abs_point(*position)
-        self._renderer.draw_text(self._draw, text, abs_pos, font=font, color=color, anchor=anchor)
+        resolved_color = self._resolve_color(color)
+        self._renderer.draw_text(
+            self._draw, text, abs_pos, font=font, color=resolved_color, anchor=anchor
+        )
 
     def draw_rect(
         self,
@@ -595,10 +613,11 @@ class RenderContext:
             name: Icon name (see Renderer.draw_icon for supported icons)
             position: (x, y) top-left corner in local coordinates
             size: Icon size
-            color: Icon color
+            color: Icon color (supports theme sentinel values)
         """
         abs_pos = self._abs_point(*position)
-        self._renderer.draw_icon(self._draw, name, abs_pos, size=size, color=color)
+        resolved_color = self._resolve_color(color)
+        self._renderer.draw_icon(self._draw, name, abs_pos, size=size, color=resolved_color)
 
     def draw_line(
         self,

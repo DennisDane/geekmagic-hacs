@@ -390,7 +390,7 @@ class MediaWidget(Widget):
                 artist=entity.get("media_artist", ""),
                 position=position,
                 duration=duration,
-                color=self.config.color or COLOR_CYAN,
+                color=self.config.color or ctx.theme.get_accent_color(self.config.slot),
                 show_progress=self.show_progress,
                 show_overlay=True,
             )
@@ -401,7 +401,7 @@ class MediaWidget(Widget):
             album=entity.get("media_album_name", ""),
             position=position,
             duration=duration,
-            color=self.config.color or COLOR_CYAN,
+            color=self.config.color or ctx.theme.get_accent_color(self.config.slot),
             show_artist=self.show_artist,
             show_album=self.show_album,
             show_progress=self.show_progress,

@@ -250,7 +250,7 @@ class ProgressWidget(Widget):
             target=self.target,
             label=label,
             unit=unit,
-            color=self.config.color or COLOR_CYAN,
+            color=self.config.color or ctx.theme.get_accent_color(self.config.slot),
             icon=self.icon,
             show_target=self.show_target,
             bar_height_style=self.bar_height_style,
@@ -299,11 +299,11 @@ class MultiProgressDisplay(Component):
             )
 
         # Build each progress item row
-        for item in self.items:
+        for i, item in enumerate(self.items):
             label = item.get("label", "Item")
             value = item.get("value", 0)
             target = item.get("target", 100)
-            color = item.get("color", COLOR_CYAN)
+            color = item.get("color", ctx.theme.get_accent_color(i))
             icon = item.get("icon")
             unit = item.get("unit", "")
 
@@ -370,7 +370,7 @@ class MultiProgressWidget(Widget):
     def render(self, ctx: RenderContext, state: WidgetState) -> Component:
         """Render the multi-progress widget."""
         display_items = []
-        for item in self.items:
+        for i, item in enumerate(self.items):
             entity_id = item.get("entity_id")
             entity = state.get_entity(entity_id) if entity_id else None
             value = _extract_numeric(entity)
@@ -389,7 +389,7 @@ class MultiProgressWidget(Widget):
                     "label": label,
                     "value": value,
                     "target": item.get("target", 100),
-                    "color": item.get("color", COLOR_CYAN),
+                    "color": item.get("color", ctx.theme.get_accent_color(i)),
                     "icon": item.get("icon"),
                     "unit": unit,
                 }

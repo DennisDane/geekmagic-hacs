@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from ..const import COLOR_CYAN, PLACEHOLDER_NAME, PLACEHOLDER_VALUE
+from ..const import PLACEHOLDER_NAME, PLACEHOLDER_VALUE
 from .base import Widget, WidgetConfig
 from .components import (
     THEME_TEXT_SECONDARY,
@@ -199,7 +199,7 @@ class AttributeListWidget(Widget):
     def render(self, ctx: RenderContext, state: WidgetState) -> Component:
         """Render the attribute list widget."""
         entity = state.entity
-        color = self.config.color or COLOR_CYAN
+        color = self.config.color or ctx.theme.get_accent_color(self.config.slot)
 
         items: list[tuple[str, str, Color]] = []
 

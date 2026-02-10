@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..const import COLOR_CYAN
 from .base import Widget, WidgetConfig
 from .components import Center, Component, Icon, Panel
 
@@ -36,7 +35,7 @@ class IconWidget(Widget):
             max_size = 240
 
         # Resolve color
-        color = self.color or self.config.color or COLOR_CYAN
+        color = self.color or self.config.color or ctx.theme.get_accent_color(self.config.slot)
 
         # Create icon component
         content = Center(child=Icon(self.icon, max_size=max_size, color=color))

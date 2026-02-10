@@ -6,7 +6,7 @@ import contextlib
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar
 
-from ..const import COLOR_CYAN
+from ..const import COLOR_CYAN  # Used as component dataclass default
 from .base import Widget, WidgetConfig
 from .components import THEME_TEXT_SECONDARY, Color, Component, Row, Spacer, Text
 
@@ -170,7 +170,7 @@ class ChartWidget(Widget):
             label=label,
             current_value=current_value if self.show_value else None,
             unit=unit,
-            color=self.config.color or COLOR_CYAN,
+            color=self.config.color or ctx.theme.get_accent_color(self.config.slot),
             show_range=self.show_range,
             fill=self.fill,
             gradient=self.color_gradient,

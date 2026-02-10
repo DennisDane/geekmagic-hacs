@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ..const import (
-    COLOR_CYAN,
     PLACEHOLDER_NAME,
     PLACEHOLDER_VALUE,
 )
@@ -89,7 +88,7 @@ class EntityWidget(Widget):
         if not icon and self.show_icon:
             icon = _get_entity_icon(entity)
 
-        color = self.config.color or COLOR_CYAN
+        color = self.config.color or ctx.theme.get_accent_color(self.config.slot)
 
         # Build component based on whether we have an icon
         if icon:

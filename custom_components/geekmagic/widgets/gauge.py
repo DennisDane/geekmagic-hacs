@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ..const import COLOR_CYAN, COLOR_DARK_GRAY
+from ..const import COLOR_DARK_GRAY
 from .base import Widget, WidgetConfig
 from .component_helpers import ArcGauge, BarGauge, RingGauge
 from .components import Component
@@ -96,7 +96,7 @@ class GaugeWidget(Widget):
 
         # Determine color
         threshold_color = self._get_threshold_color(value)
-        color = threshold_color or self.config.color or COLOR_CYAN
+        color = threshold_color or self.config.color or ctx.theme.get_accent_color(self.config.slot)
 
         # Format value with unit
         value_text = format_value_with_unit(display_value, unit) if self.show_value else ""
