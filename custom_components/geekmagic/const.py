@@ -51,6 +51,13 @@ THEME_OCEAN = "ocean"
 THEME_SUNSET = "sunset"
 THEME_FOREST = "forest"
 THEME_CANDY = "candy"
+THEME_OAK_YELLOW = "oak_yellow"
+THEME_AMBER_YELLOW = "amber_yellow"
+THEME_SLATE_MINT = "slate_mint"
+THEME_TERRACOTTA_DUSK = "terracotta_dusk"
+THEME_NORDIC_FOG = "nordic_fog"
+THEME_GRAPHITE_COPPER = "graphite_copper"
+THEME_PETROL_BLOOM = "petrol_bloom"
 
 # Theme display names for UI
 THEME_OPTIONS = {
@@ -64,6 +71,13 @@ THEME_OPTIONS = {
     THEME_SUNSET: "Sunset",
     THEME_FOREST: "Forest",
     THEME_CANDY: "Candy",
+    THEME_OAK_YELLOW: "Oak Yellow",
+    THEME_AMBER_YELLOW: "Amber Yellow",
+    THEME_SLATE_MINT: "Slate Mint",
+    THEME_TERRACOTTA_DUSK: "Terracotta Dusk",
+    THEME_NORDIC_FOG: "Nordic Fog",
+    THEME_GRAPHITE_COPPER: "Graphite Copper",
+    THEME_PETROL_BLOOM: "Petrol Bloom",
 }
 
 # Layout types

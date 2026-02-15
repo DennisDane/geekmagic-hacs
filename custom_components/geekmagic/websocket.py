@@ -29,6 +29,7 @@ from .const import (
     THEME_OPTIONS,
 )
 from .renderer import Renderer
+from .template_utils import resolve_widget_template_options
 from .widgets.base import WidgetConfig
 from .widgets.state import EntityState, WidgetState
 
@@ -91,10 +92,33 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
                 "options": ["bar", "ring", "arc"],
                 "default": "bar",
             },
-            {"key": "min", "type": "number", "label": "Minimum", "default": 0},
-            {"key": "max", "type": "number", "label": "Maximum", "default": 100},
+            {"key": "min", "type": "number", "label": "Minimum", "default": 0, "step": "any"},
+            {"key": "min_entity", "type": "entity", "label": "Minimum Entity"},
+            {
+                "key": "min_template",
+                "type": "text",
+                "label": "Minimum Template",
+                "placeholder": "{{ state_attr('number.my_slider', 'min') }}",
+            },
+            {"key": "max", "type": "number", "label": "Maximum", "default": 100, "step": "any"},
+            {"key": "max_entity", "type": "entity", "label": "Maximum Entity"},
+            {
+                "key": "max_template",
+                "type": "text",
+                "label": "Maximum Template",
+                "placeholder": "{{ state_attr('number.my_slider', 'max') }}",
+            },
             {"key": "unit", "type": "text", "label": "Unit Override"},
             {"key": "show_value", "type": "boolean", "label": "Show Value", "default": True},
+            {
+                "key": "precision",
+                "type": "number",
+                "label": "Decimal Places",
+                "default": 2,
+                "min": 0,
+                "max": 6,
+                "step": 1,
+            },
             {"key": "icon", "type": "icon", "label": "Icon"},
             {"key": "attribute", "type": "text", "label": "Entity Attribute"},
             {"key": "color_thresholds", "type": "thresholds", "label": "Color Thresholds"},
@@ -138,6 +162,12 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "needs_entity": False,
         "options": [
             {"key": "text", "type": "text", "label": "Text Content"},
+            {
+                "key": "text_template",
+                "type": "text",
+                "label": "Text Template",
+                "placeholder": "{{ states('sensor.foo') }}",
+            },
             {"key": "entity_id", "type": "entity", "label": "Entity (dynamic text)"},
             {
                 "key": "size",
@@ -160,7 +190,29 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "needs_entity": True,
         "entity_domains": None,  # Any entity with numeric state
         "options": [
-            {"key": "target", "type": "number", "label": "Target Value", "default": 100},
+            {
+                "key": "target",
+                "type": "number",
+                "label": "Target Value",
+                "default": 100,
+                "step": "any",
+            },
+            {
+                "key": "target_template",
+                "type": "text",
+                "label": "Target Template",
+                "placeholder": "{{ states('number.daily_goal') }}",
+            },
+            {"key": "target_entity", "type": "entity", "label": "Target Entity"},
+            {
+                "key": "precision",
+                "type": "number",
+                "label": "Decimal Places",
+                "default": 1,
+                "min": 0,
+                "max": 6,
+                "step": 1,
+            },
             {"key": "unit", "type": "text", "label": "Unit"},
             {"key": "show_target", "type": "boolean", "label": "Show Target", "default": True},
             {"key": "icon", "type": "icon", "label": "Icon"},
@@ -197,7 +249,19 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "entity_domains": None,  # Any entity (interprets state as on/off)
         "options": [
             {"key": "on_text", "type": "text", "label": "On Text", "default": "On"},
+            {
+                "key": "on_text_template",
+                "type": "text",
+                "label": "On Text Template",
+                "placeholder": "{{ 'OPEN' if is_state('binary_sensor.door', 'on') else 'ON' }}",
+            },
             {"key": "off_text", "type": "text", "label": "Off Text", "default": "Off"},
+            {
+                "key": "off_text_template",
+                "type": "text",
+                "label": "Off Text Template",
+                "placeholder": "{{ 'CLOSED' if is_state('binary_sensor.door', 'off') else 'OFF' }}",
+            },
             {
                 "key": "on_color",
                 "type": "color",
@@ -259,6 +323,16 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "needs_entity": False,
         "options": [
             {"key": "title", "type": "text", "label": "Title"},
+            {"key": "title_template", "type": "text", "label": "Title Template"},
+            {
+                "key": "precision",
+                "type": "number",
+                "label": "Decimal Places",
+                "default": 0,
+                "min": 0,
+                "max": 6,
+                "step": 1,
+            },
             {"key": "items", "type": "progress_items", "label": "Progress Items"},
         ],
     },
@@ -267,6 +341,7 @@ WIDGET_TYPE_SCHEMAS: dict[str, dict[str, Any]] = {
         "needs_entity": False,
         "options": [
             {"key": "title", "type": "text", "label": "Title"},
+            {"key": "title_template", "type": "text", "label": "Title Template"},
             {"key": "entities", "type": "status_entities", "label": "Status Entities"},
             {
                 "key": "on_color",
@@ -780,6 +855,7 @@ async def ws_preview_render(
         layout.theme = get_theme(theme_name)
 
         # Add widgets
+        widgets_by_slot: dict[int, Any] = {}
         for widget_data in view_config.get("widgets", []):
             widget_type = widget_data.get("type")
             slot = widget_data.get("slot", 0)
@@ -806,6 +882,7 @@ async def ws_preview_render(
             )
             widget = widget_class(config)
             layout.set_widget(slot, widget)
+            widgets_by_slot[slot] = widget
 
         # Build widget_states for rendering
         from datetime import UTC
@@ -833,6 +910,21 @@ async def ws_preview_render(
                         attributes=dict(state.attributes),
                     )
 
+            # Build additional entity states for widgets with dependencies
+            additional_entities: dict[str, EntityState] = {}
+            widget = widgets_by_slot.get(slot)
+            if widget is not None:
+                for dependent_id in widget.get_entities():
+                    if not dependent_id or dependent_id == entity_id:
+                        continue
+                    dependent_state = hass.states.get(dependent_id)
+                    if dependent_state:
+                        additional_entities[dependent_id] = EntityState(
+                            entity_id=dependent_id,
+                            state=dependent_state.state,
+                            attributes=dict(dependent_state.attributes),
+                        )
+
             # Get chart history if available
             history: list[float] = []
             widget_type = widget_data.get("type")
@@ -852,9 +944,15 @@ async def ws_preview_render(
                     with contextlib.suppress(Exception):
                         widget_now = datetime.now(tz=ZoneInfo(tz_option))
 
+            widget_options = widget_data.get("options", {})
             widget_states[slot] = WidgetState(
                 entity=entity,
-                entities={},
+                entities=additional_entities,
+                resolved_options=resolve_widget_template_options(
+                    hass,
+                    str(widget_type or ""),
+                    widget_options if isinstance(widget_options, dict) else {},
+                ),
                 history=history,
                 forecast=forecast,
                 image=None,

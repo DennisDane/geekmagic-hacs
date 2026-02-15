@@ -158,6 +158,7 @@ class Layout(ABC):
             # The rect is relative to the temp image, not the main canvas
             local_rect = (0, 0, x2 - x1, y2 - y1)
             ctx = RenderContext(temp_draw, local_rect, renderer, theme=self.theme)
+            self._draw_slot_chrome(ctx)
 
             # Get widget state for this slot
             state = widget_states.get(slot.index, WidgetState())
@@ -176,6 +177,47 @@ class Layout(ABC):
 
         # Apply theme visual effects after all widgets are rendered
         self._apply_theme_effects(canvas, scale)
+
+    def _draw_slot_chrome(self, ctx: RenderContext) -> None:
+        """Draw theme card chrome (surface + optional border) for a slot.
+
+        Most widgets intentionally render only their content; this ensures the
+        theme's card styling is visible regardless of widget type.
+        """
+        width, height = ctx.width, ctx.height
+        if width <= 0 or height <= 0:
+            return
+
+        rect = (0, 0, width, height)
+        radius = max(0, min(self.theme.corner_radius, min(width, height) // 2))
+        style = self.theme.border_style
+        border_width = max(0, self.theme.border_width)
+
+        if border_width <= 0 or style == "none":
+            ctx.draw_rounded_rect(rect, radius=radius, fill=self.theme.surface)
+            return
+
+        # Default border treatment for solid/outline themes.
+        ctx.draw_rounded_rect(
+            rect,
+            radius=radius,
+            fill=self.theme.surface,
+            outline=self.theme.border,
+            width=border_width,
+        )
+
+        # Optional second inset stroke for "double" border style.
+        if style == "double":
+            inset = max(2, border_width * 2)
+            if width - inset * 2 > 4 and height - inset * 2 > 4:
+                inner_rect = (inset, inset, width - inset, height - inset)
+                inner_radius = max(0, radius - inset)
+                ctx.draw_rounded_rect(
+                    inner_rect,
+                    radius=inner_radius,
+                    outline=self.theme.border,
+                    width=max(1, border_width // 2),
+                )
 
     def _apply_theme_effects(self, canvas: Image.Image, scale: int) -> None:
         """Apply theme-specific visual effects to the rendered canvas.

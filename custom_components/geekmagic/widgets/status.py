@@ -160,6 +160,16 @@ class StatusWidget(Widget):
         entity = state.entity
         is_on = _is_entity_on(entity)
 
+        resolved_on = state.get_resolved_option("on_text")
+        on_text = self.on_text
+        if "on_text" in state.resolved_options:
+            on_text = "" if resolved_on is None else str(resolved_on)
+
+        resolved_off = state.get_resolved_option("off_text")
+        off_text = self.off_text
+        if "off_text" in state.resolved_options:
+            off_text = "" if resolved_off is None else str(resolved_off)
+
         name = self.config.label
         if not name and entity:
             name = entity.friendly_name
@@ -170,8 +180,8 @@ class StatusWidget(Widget):
             is_on=is_on,
             on_color=self.on_color,
             off_color=self.off_color,
-            on_text=self.on_text,
-            off_text=self.off_text,
+            on_text=on_text,
+            off_text=off_text,
             icon=self.icon,
             show_status_text=self.show_status_text,
         )
@@ -284,6 +294,11 @@ class StatusListWidget(Widget):
 
     def render(self, ctx: RenderContext, state: WidgetState) -> Component:
         """Render the status list widget."""
+        resolved_title = state.get_resolved_option("title")
+        title = self.title
+        if "title" in state.resolved_options:
+            title = "" if resolved_title is None else str(resolved_title)
+
         items = []
         for entry in self.entities:
             if isinstance(entry, list | tuple):
@@ -305,7 +320,7 @@ class StatusListWidget(Widget):
 
         return StatusListDisplay(
             items=items,
-            title=self.title,
+            title=title,
             on_text=self.on_text,
             off_text=self.off_text,
         )

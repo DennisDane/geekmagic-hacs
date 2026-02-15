@@ -27,10 +27,20 @@ from custom_components.geekmagic.widgets.helpers import (
     translate_binary_state,
 )
 from custom_components.geekmagic.widgets.media import MediaWidget
-from custom_components.geekmagic.widgets.progress import MultiProgressWidget, ProgressWidget
+from custom_components.geekmagic.widgets.progress import (
+    MultiProgressDisplay,
+    MultiProgressWidget,
+    ProgressDisplay,
+    ProgressWidget,
+)
 from custom_components.geekmagic.widgets.state import EntityState, WidgetState
-from custom_components.geekmagic.widgets.status import StatusListWidget, StatusWidget
-from custom_components.geekmagic.widgets.text import TextWidget
+from custom_components.geekmagic.widgets.status import (
+    StatusIndicator,
+    StatusListDisplay,
+    StatusListWidget,
+    StatusWidget,
+)
+from custom_components.geekmagic.widgets.text import TextDisplay, TextWidget
 from custom_components.geekmagic.widgets.weather import WeatherWidget
 
 
@@ -50,6 +60,7 @@ def _build_widget_state(
     hass: Any | None = None,
     entity_id: str | None = None,
     extra_entities: list[str] | None = None,
+    resolved_options: dict[str, Any] | None = None,
     history: list[float] | None = None,
     forecast: list[dict[str, Any]] | None = None,
 ) -> WidgetState:
@@ -80,6 +91,7 @@ def _build_widget_state(
     return WidgetState(
         entity=entity,
         entities=entities,
+        resolved_options=resolved_options or {},
         history=history or [],
         forecast=forecast or [],
         image=None,
@@ -845,6 +857,54 @@ class TestTextWidget:
         widget.render(ctx, state)
         assert img.size == (480, 480)
 
+    def test_template_text_overrides_entity_and_static(self, renderer, canvas, rect, hass):
+        """Test resolved text template value takes precedence over entity/static text."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.temperature", "23.5", {"friendly_name": "Temperature"})
+
+        config = WidgetConfig(
+            widget_type="text",
+            slot=0,
+            entity_id="sensor.temperature",
+            options={
+                "text": "Static text",
+                "text_template": "{{ states('sensor.temperature') }}",
+            },
+        )
+        widget = TextWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.temperature",
+            resolved_options={"text": "Template text"},
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, TextDisplay)
+        assert component.text == "Template text"
+
+    def test_template_text_falls_back_to_entity_text(self, renderer, canvas, rect, hass):
+        """Test unresolved template falls back to entity state before static text."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.temperature", "23.5", {"friendly_name": "Temperature"})
+
+        config = WidgetConfig(
+            widget_type="text",
+            slot=0,
+            entity_id="sensor.temperature",
+            options={
+                "text": "Static text",
+                "text_template": "{{ states('sensor.missing') }}",
+            },
+        )
+        widget = TextWidget(config)
+        state = _build_widget_state(hass, "sensor.temperature")
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, TextDisplay)
+        assert component.text == "23.5"
+
     def test_different_alignments(self, renderer, rect):
         """Test different text alignments."""
         for align in ["left", "center", "right"]:
@@ -968,6 +1028,240 @@ class TestGaugeWidget:
         widget.render(ctx, state)
         assert img.size == (480, 480)
 
+    def test_precision_formats_float_value(self, renderer, canvas, rect, hass):
+        """Test gauge precision formatting for float values."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.temp", "23.456", {"friendly_name": "Temperature"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.temp",
+            options={"style": "ring", "precision": 1},
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(hass, "sensor.temp")
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Column, Stack, Text
+
+        assert isinstance(component, Stack)
+        text_values = []
+        for child in component.children:
+            if isinstance(child, Column):
+                text_values.extend(
+                    text_child.text
+                    for text_child in child.children
+                    if isinstance(text_child, Text)
+                )
+
+        assert "23.5" in text_values
+
+    def test_dynamic_bounds_entities_affect_percent(self, renderer, canvas, rect, hass):
+        """Test gauge percent uses dynamic min/max entities when numeric."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.value", "50", {"friendly_name": "Value"})
+        hass.states.async_set("sensor.min_bound", "40", {"friendly_name": "Min"})
+        hass.states.async_set("sensor.max_bound", "60", {"friendly_name": "Max"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "style": "ring",
+                "min": 0,
+                "max": 100,
+                "min_entity": "sensor.min_bound",
+                "max_entity": "sensor.max_bound",
+            },
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.value",
+            extra_entities=["sensor.min_bound", "sensor.max_bound"],
+        )
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Ring, Stack
+
+        assert isinstance(component, Stack)
+        assert isinstance(component.children[0], Ring)
+        assert component.children[0].percent == 50.0
+
+    def test_dynamic_bounds_fallback_to_static_when_invalid(self, renderer, canvas, rect, hass):
+        """Test gauge falls back to static bounds when dynamic bounds are not numeric."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.value", "50", {"friendly_name": "Value"})
+        hass.states.async_set("sensor.min_bound", "invalid", {"friendly_name": "Min"})
+        hass.states.async_set("sensor.max_bound", "invalid", {"friendly_name": "Max"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "style": "ring",
+                "min": 0,
+                "max": 200,
+                "min_entity": "sensor.min_bound",
+                "max_entity": "sensor.max_bound",
+            },
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.value",
+            extra_entities=["sensor.min_bound", "sensor.max_bound"],
+        )
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Ring, Stack
+
+        assert isinstance(component, Stack)
+        assert isinstance(component.children[0], Ring)
+        assert component.children[0].percent == 25.0
+
+    def test_template_bounds_use_state_attr_values(self, renderer, canvas, rect, hass):
+        """Test gauge can use pre-resolved template bounds from backend state."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.value", "30", {"friendly_name": "Value"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "style": "ring",
+                "min": 0,
+                "max": 100,
+                "min_template": "{{ state_attr('number.slider', 'min') }}",
+                "max_template": "{{ state_attr('number.slider', 'max') }}",
+            },
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.value",
+            resolved_options={"min": 20.0, "max": 40.0},
+        )
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Ring, Stack
+
+        assert isinstance(component, Stack)
+        assert isinstance(component.children[0], Ring)
+        assert component.children[0].percent == 50.0
+
+    def test_template_bounds_take_precedence_over_entity_bounds(
+        self, renderer, canvas, rect, hass
+    ):
+        """Test pre-resolved template bounds override min/max entity bounds."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.value", "30", {"friendly_name": "Value"})
+        hass.states.async_set("sensor.min_bound", "10", {"friendly_name": "Min"})
+        hass.states.async_set("sensor.max_bound", "90", {"friendly_name": "Max"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "style": "ring",
+                "min": 0,
+                "max": 100,
+                "min_entity": "sensor.min_bound",
+                "max_entity": "sensor.max_bound",
+                "min_template": "{{ state_attr('number.slider', 'min') }}",
+                "max_template": "{{ state_attr('number.slider', 'max') }}",
+            },
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.value",
+            extra_entities=["sensor.min_bound", "sensor.max_bound"],
+            resolved_options={"min": 20.0, "max": 40.0},
+        )
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Ring, Stack
+
+        assert isinstance(component, Stack)
+        assert isinstance(component.children[0], Ring)
+        assert component.children[0].percent == 50.0
+
+    def test_template_bounds_fall_back_to_entity_and_static(self, renderer, canvas, rect, hass):
+        """Test missing pre-resolved template bounds fall back to entity/static bounds."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.value", "60", {"friendly_name": "Value"})
+        hass.states.async_set("sensor.min_bound", "20", {"friendly_name": "Min"})
+
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "style": "ring",
+                "min": 0,
+                "max": 100,
+                "min_entity": "sensor.min_bound",
+                "min_template": "{{ state_attr('number.slider', 'min') }}",
+                "max_template": "{{ state_attr('number.slider', 'max') }}",
+            },
+        )
+        widget = GaugeWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.value",
+            extra_entities=["sensor.min_bound"],
+        )
+        component = widget.render(ctx, state)
+
+        from custom_components.geekmagic.widgets.components import Ring, Stack
+
+        assert isinstance(component, Stack)
+        assert isinstance(component.children[0], Ring)
+        assert component.children[0].percent == 50.0
+
+    def test_get_entities_includes_dynamic_bounds(self):
+        """Test gauge dependencies include min/max bound entities."""
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={"min_entity": "sensor.min_bound", "max_entity": "sensor.max_bound"},
+        )
+        widget = GaugeWidget(config)
+        entities = widget.get_entities()
+        assert "sensor.value" in entities
+        assert "sensor.min_bound" in entities
+        assert "sensor.max_bound" in entities
+
+    def test_get_entities_does_not_parse_template_dependencies(self):
+        """Test template dependencies are resolved in backend, not in widget parser."""
+        config = WidgetConfig(
+            widget_type="gauge",
+            slot=0,
+            entity_id="sensor.value",
+            options={
+                "min_template": "{{ state_attr('number.slider', 'min') }}",
+                "max_template": "{{ states('sensor.max_bound') }}",
+            },
+        )
+        widget = GaugeWidget(config)
+        entities = widget.get_entities()
+        assert "sensor.value" in entities
+        assert "number.slider" not in entities
+        assert "sensor.max_bound" not in entities
+
 
 class TestProgressWidget:
     """Tests for ProgressWidget."""
@@ -1026,6 +1320,136 @@ class TestProgressWidget:
         widget.render(ctx, state)
         assert img.size == (480, 480)
 
+    def test_dynamic_target_entity_affects_progress(self, renderer, canvas, rect, hass):
+        """Test dynamic target entity overrides static target when numeric."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "40", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.goal", "80", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target": 100, "target_entity": "sensor.goal"},
+        )
+        widget = ProgressWidget(config)
+        state = _build_widget_state(hass, "sensor.steps", extra_entities=["sensor.goal"])
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, ProgressDisplay)
+        assert component.target == 80
+
+    def test_dynamic_target_entity_falls_back_to_static(self, renderer, canvas, rect, hass):
+        """Test dynamic target falls back to static target when not numeric."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "40", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.goal", "not-a-number", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target": 200, "target_entity": "sensor.goal"},
+        )
+        widget = ProgressWidget(config)
+        state = _build_widget_state(hass, "sensor.steps", extra_entities=["sensor.goal"])
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, ProgressDisplay)
+        assert component.target == 200
+
+    def test_template_target_overrides_entity_and_static(self, renderer, canvas, rect, hass):
+        """Test resolved target template value takes precedence over entity/static target."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "40", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.goal", "80", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={
+                "target": 200,
+                "target_entity": "sensor.goal",
+                "target_template": "{{ states('number.goal') }}",
+            },
+        )
+        widget = ProgressWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.steps",
+            extra_entities=["sensor.goal"],
+            resolved_options={"target": 120.5},
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, ProgressDisplay)
+        assert component.target == 120.5
+
+    def test_template_target_falls_back_to_target_entity(self, renderer, canvas, rect, hass):
+        """Test unresolved target template falls back to target entity value."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "40", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.goal", "80", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={
+                "target": 200,
+                "target_entity": "sensor.goal",
+                "target_template": "{{ states('number.goal') }}",
+            },
+        )
+        widget = ProgressWidget(config)
+        state = _build_widget_state(
+            hass,
+            "sensor.steps",
+            extra_entities=["sensor.goal"],
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, ProgressDisplay)
+        assert component.target == 80
+
+    def test_precision_option_is_applied(self, renderer, canvas, rect, hass):
+        """Test progress precision option is propagated to display."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "12.345", {"friendly_name": "Steps"})
+
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target": 20.5, "precision": 2},
+        )
+        widget = ProgressWidget(config)
+        state = _build_widget_state(hass, "sensor.steps")
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, ProgressDisplay)
+        assert component.precision == 2
+        assert component.value == 12.345
+
+    def test_get_entities_includes_target_entity(self):
+        """Test progress dependencies include target entity."""
+        config = WidgetConfig(
+            widget_type="progress",
+            slot=0,
+            entity_id="sensor.steps",
+            options={"target_entity": "sensor.goal"},
+        )
+        widget = ProgressWidget(config)
+        entities = widget.get_entities()
+        assert "sensor.steps" in entities
+        assert "sensor.goal" in entities
+
 
 class TestMultiProgressWidget:
     """Tests for MultiProgressWidget."""
@@ -1048,7 +1472,7 @@ class TestMultiProgressWidget:
             slot=0,
             options={
                 "items": [
-                    {"entity_id": "sensor.steps", "target": 10000},
+                    {"entity_id": "sensor.steps", "target": 10000, "target_entity": "sensor.goal"},
                     {"entity_id": "sensor.calories", "target": 500},
                 ]
             },
@@ -1056,6 +1480,7 @@ class TestMultiProgressWidget:
         widget = MultiProgressWidget(config)
         assert "sensor.steps" in widget.get_entities()
         assert "sensor.calories" in widget.get_entities()
+        assert "sensor.goal" in widget.get_entities()
 
     def test_render_with_items(self, renderer, canvas, rect, hass):
         """Test rendering with multiple items."""
@@ -1079,6 +1504,151 @@ class TestMultiProgressWidget:
         state = _build_widget_state(hass, extra_entities=["sensor.steps", "sensor.calories"])
         widget.render(ctx, state)
         assert img.size == (480, 480)
+
+    def test_render_uses_dynamic_target_entity(self, renderer, canvas, rect, hass):
+        """Test multi-progress item target can come from entity state."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "50", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.steps_goal", "75", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "precision": 2,
+                "items": [
+                    {
+                        "entity_id": "sensor.steps",
+                        "target": 100,
+                        "target_entity": "sensor.steps_goal",
+                        "label": "Steps",
+                    }
+                ],
+            },
+        )
+        widget = MultiProgressWidget(config)
+        state = _build_widget_state(
+            hass,
+            extra_entities=["sensor.steps", "sensor.steps_goal"],
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, MultiProgressDisplay)
+        assert component.items[0]["target"] == 75
+        assert component.items[0]["precision"] == 2
+
+    def test_render_falls_back_to_static_target_when_dynamic_invalid(
+        self,
+        renderer,
+        canvas,
+        rect,
+        hass,
+    ):
+        """Test multi-progress target fallback when dynamic target is invalid."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "50", {"friendly_name": "Steps"})
+        hass.states.async_set("sensor.steps_goal", "invalid", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "items": [
+                    {
+                        "entity_id": "sensor.steps",
+                        "target": 100,
+                        "target_entity": "sensor.steps_goal",
+                        "label": "Steps",
+                    }
+                ],
+            },
+        )
+        widget = MultiProgressWidget(config)
+        state = _build_widget_state(
+            hass,
+            extra_entities=["sensor.steps", "sensor.steps_goal"],
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, MultiProgressDisplay)
+        assert component.items[0]["target"] == 100
+
+    def test_templates_override_title_and_item_fields(self, renderer, canvas, rect, hass):
+        """Test resolved multi-progress templates override static/entity-based fields."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "50", {"friendly_name": "Steps Friendly"})
+        hass.states.async_set("sensor.steps_goal", "75", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "title": "Fitness",
+                "title_template": "{{ states('sensor.title') }}",
+                "items": [
+                    {
+                        "entity_id": "sensor.steps",
+                        "label": "Static Steps",
+                        "label_template": "{{ states('sensor.label') }}",
+                        "target": 100,
+                        "target_entity": "sensor.steps_goal",
+                        "target_template": "{{ states('sensor.target') }}",
+                    }
+                ],
+            },
+        )
+        widget = MultiProgressWidget(config)
+        state = _build_widget_state(
+            hass,
+            extra_entities=["sensor.steps", "sensor.steps_goal"],
+            resolved_options={
+                "title": "Dynamic Fitness",
+                "items": [{"label": "Dynamic Steps", "target": 150.0}],
+            },
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, MultiProgressDisplay)
+        assert component.title == "Dynamic Fitness"
+        assert component.items[0]["label"] == "Dynamic Steps"
+        assert component.items[0]["target"] == 150.0
+
+    def test_templates_fallback_to_entity_and_static(self, renderer, canvas, rect, hass):
+        """Test unresolved multi-progress templates use entity/static fallback path."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("sensor.steps", "50", {"friendly_name": "Steps Friendly"})
+        hass.states.async_set("sensor.steps_goal", "75", {"friendly_name": "Goal"})
+
+        config = WidgetConfig(
+            widget_type="multi_progress",
+            slot=0,
+            options={
+                "title": "Fitness",
+                "title_template": "{{ states('sensor.title') }}",
+                "items": [
+                    {
+                        "entity_id": "sensor.steps",
+                        "label": "",
+                        "label_template": "{{ states('sensor.label') }}",
+                        "target": 100,
+                        "target_entity": "sensor.steps_goal",
+                        "target_template": "{{ states('sensor.target') }}",
+                    }
+                ],
+            },
+        )
+        widget = MultiProgressWidget(config)
+        state = _build_widget_state(hass, extra_entities=["sensor.steps", "sensor.steps_goal"])
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, MultiProgressDisplay)
+        assert component.title == "Fitness"
+        assert component.items[0]["label"] == "Steps Friendly"
+        assert component.items[0]["target"] == 75
 
 
 class TestStatusWidget:
@@ -1107,6 +1677,35 @@ class TestStatusWidget:
         widget = StatusWidget(config)
         assert widget.on_text == "Open"
         assert widget.off_text == "Closed"
+
+    def test_templates_override_on_off_text(self, renderer, canvas, rect, hass):
+        """Test resolved status templates override static on/off text."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("binary_sensor.door", "on", {"friendly_name": "Front Door"})
+
+        config = WidgetConfig(
+            widget_type="status",
+            slot=0,
+            entity_id="binary_sensor.door",
+            options={
+                "on_text": "Open",
+                "off_text": "Closed",
+                "on_text_template": "{{ 'UP' }}",
+                "off_text_template": "{{ 'DOWN' }}",
+            },
+        )
+        widget = StatusWidget(config)
+        state = _build_widget_state(
+            hass,
+            "binary_sensor.door",
+            resolved_options={"on_text": "UP", "off_text": "DOWN"},
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, StatusIndicator)
+        assert component.on_text == "UP"
+        assert component.off_text == "DOWN"
 
     def test_init_with_list_colors(self):
         """Test status widget with colors as lists (from JSON)."""
@@ -1238,6 +1837,32 @@ class TestStatusListWidget:
         entities = widget.get_entities()
         assert "binary_sensor.front_door" in entities
         assert "binary_sensor.back_door" in entities
+
+    def test_title_template_overrides_static_title(self, renderer, canvas, rect, hass):
+        """Test resolved status_list title template overrides static title."""
+        _img, draw = canvas
+        ctx = RenderContext(draw, rect, renderer)
+        hass.states.async_set("binary_sensor.front_door", "on", {"friendly_name": "Front"})
+
+        config = WidgetConfig(
+            widget_type="status_list",
+            slot=0,
+            options={
+                "title": "Doors",
+                "title_template": "{{ states('sensor.title') }}",
+                "entities": ["binary_sensor.front_door"],
+            },
+        )
+        widget = StatusListWidget(config)
+        state = _build_widget_state(
+            hass,
+            extra_entities=["binary_sensor.front_door"],
+            resolved_options={"title": "Dynamic Doors"},
+        )
+        component = widget.render(ctx, state)
+
+        assert isinstance(component, StatusListDisplay)
+        assert component.title == "Dynamic Doors"
 
     def test_render_with_custom_colors(self, renderer, canvas, rect, hass):
         """Test rendering with custom colors from JSON (issue #48 regression test)."""

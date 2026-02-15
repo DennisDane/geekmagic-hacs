@@ -111,6 +111,7 @@ export interface WidgetOption {
   options?: string[];
   min?: number;
   max?: number;
+  step?: number | "any";
   placeholder?: string;
 }
 
@@ -118,7 +119,10 @@ export interface WidgetOption {
 export interface ProgressItem {
   entity_id: string;
   label?: string;
+  label_template?: string;
   target?: number;
+  target_entity?: string;
+  target_template?: string;
   color?: [number, number, number];
   icon?: string;
   unit?: string;

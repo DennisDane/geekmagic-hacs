@@ -4,6 +4,7 @@ from custom_components.geekmagic.const import (
     CONF_LAYOUT,
     CONF_WIDGETS,
     LAYOUT_GRID_2X2,
+    LAYOUT_GRID_3X2,
     LAYOUT_SPLIT_H,
 )
 from custom_components.geekmagic.preview import (
@@ -105,6 +106,199 @@ class TestRenderPreview:
         result = render_preview(LAYOUT_GRID_2X2, widgets_config)
 
         assert isinstance(result, bytes)
+
+    def test_render_widgets_with_dynamic_bounds(self):
+        """Test preview rendering with dynamic entity-bound limits/targets."""
+        widgets_config = [
+            {
+                "type": "gauge",
+                "slot": 0,
+                "entity_id": "sensor.cpu",
+                "options": {
+                    "style": "ring",
+                    "min": 0,
+                    "max": 100,
+                    "min_entity": "sensor.cpu_min",
+                    "max_entity": "sensor.cpu_max",
+                    "precision": 1,
+                },
+            },
+            {
+                "type": "progress",
+                "slot": 1,
+                "entity_id": "sensor.steps",
+                "options": {
+                    "target": 10000,
+                    "target_entity": "sensor.steps_goal",
+                    "precision": 1,
+                },
+            },
+            {
+                "type": "multi_progress",
+                "slot": 2,
+                "options": {
+                    "precision": 2,
+                    "items": [
+                        {
+                            "entity_id": "sensor.calories",
+                            "target": 500,
+                            "target_entity": "sensor.calories_goal",
+                            "label": "Calories",
+                        }
+                    ],
+                },
+            },
+        ]
+        result = render_preview(LAYOUT_GRID_2X2, widgets_config)
+        assert isinstance(result, bytes)
+        assert result[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_render_gauge_with_template_bounds(self):
+        """Test preview rendering with gauge template-driven bounds."""
+        widgets_config = [
+            {
+                "type": "gauge",
+                "slot": 0,
+                "entity_id": "sensor.cpu",
+                "options": {
+                    "style": "ring",
+                    "min": 0,
+                    "max": 100,
+                    "min_template": "{{ state_attr('number.cpu_slider', 'min') }}",
+                    "max_template": "{{ state_attr('number.cpu_slider', 'max') }}",
+                },
+            }
+        ]
+        result = render_preview(LAYOUT_GRID_2X2, widgets_config)
+        assert isinstance(result, bytes)
+        assert result[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_render_widgets_with_template_options_hass_none(self):
+        """Test preview renders with template options present when hass is None."""
+        widgets_config = [
+            {
+                "type": "text",
+                "slot": 0,
+                "options": {"text": "Fallback text", "text_template": "{{ states('sensor.foo') }}"},
+            },
+            {
+                "type": "progress",
+                "slot": 1,
+                "entity_id": "sensor.steps",
+                "options": {
+                    "target": 100,
+                    "target_template": "{{ states('number.steps_goal') }}",
+                    "target_entity": "sensor.steps_goal",
+                },
+            },
+            {
+                "type": "multi_progress",
+                "slot": 2,
+                "options": {
+                    "title": "Fitness",
+                    "title_template": "{{ states('sensor.title') }}",
+                    "items": [
+                        {
+                            "entity_id": "sensor.calories",
+                            "label": "Calories",
+                            "label_template": "{{ states('sensor.calories_name') }}",
+                            "target": 500,
+                            "target_template": "{{ states('number.calories_goal') }}",
+                            "target_entity": "sensor.calories_goal",
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "status",
+                "slot": 3,
+                "entity_id": "binary_sensor.door",
+                "options": {
+                    "on_text": "On",
+                    "off_text": "Off",
+                    "on_text_template": "{{ 'OPEN' }}",
+                    "off_text_template": "{{ 'CLOSED' }}",
+                },
+            },
+            {
+                "type": "status_list",
+                "slot": 4,
+                "options": {
+                    "title": "Doors",
+                    "title_template": "{{ states('sensor.door_title') }}",
+                    "entities": ["binary_sensor.door"],
+                },
+            },
+        ]
+        result = render_preview(LAYOUT_GRID_3X2, widgets_config)
+        assert isinstance(result, bytes)
+        assert result[:8] == b"\x89PNG\r\n\x1a\n"
+
+    def test_render_widgets_with_template_options_hass(self, hass):
+        """Test preview renders with template options using real hass template evaluation."""
+        hass.states.async_set("sensor.foo", "Templated text")
+        hass.states.async_set("sensor.steps", "40")
+        hass.states.async_set("number.steps_goal", "80")
+        hass.states.async_set("sensor.title", "Dynamic fitness")
+        hass.states.async_set("sensor.calories", "200")
+        hass.states.async_set("sensor.calories_name", "Burn")
+        hass.states.async_set("number.calories_goal", "500")
+        hass.states.async_set("binary_sensor.door", "on")
+        hass.states.async_set("sensor.door_title", "Dynamic doors")
+
+        widgets_config = [
+            {
+                "type": "text",
+                "slot": 0,
+                "options": {"text": "Fallback text", "text_template": "{{ states('sensor.foo') }}"},
+            },
+            {
+                "type": "progress",
+                "slot": 1,
+                "entity_id": "sensor.steps",
+                "options": {"target": 100, "target_template": "{{ states('number.steps_goal') }}"},
+            },
+            {
+                "type": "multi_progress",
+                "slot": 2,
+                "options": {
+                    "title": "Fitness",
+                    "title_template": "{{ states('sensor.title') }}",
+                    "items": [
+                        {
+                            "entity_id": "sensor.calories",
+                            "label": "Calories",
+                            "label_template": "{{ states('sensor.calories_name') }}",
+                            "target": 500,
+                            "target_template": "{{ states('number.calories_goal') }}",
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "status",
+                "slot": 3,
+                "entity_id": "binary_sensor.door",
+                "options": {
+                    "on_text": "On",
+                    "off_text": "Off",
+                    "on_text_template": "{{ 'OPEN' }}",
+                    "off_text_template": "{{ 'CLOSED' }}",
+                },
+            },
+            {
+                "type": "status_list",
+                "slot": 4,
+                "options": {
+                    "title": "Doors",
+                    "title_template": "{{ states('sensor.door_title') }}",
+                    "entities": ["binary_sensor.door"],
+                },
+            },
+        ]
+        result = render_preview(LAYOUT_GRID_3X2, widgets_config, hass=hass)
+        assert isinstance(result, bytes)
+        assert result[:8] == b"\x89PNG\r\n\x1a\n"
 
     def test_render_weather_widget(self):
         """Test rendering a weather widget."""

@@ -1349,6 +1349,7 @@ export class GeekMagicPanel extends LitElement {
               .value=${value !== undefined ? String(value) : ""}
               .min=${opt.min !== undefined ? String(opt.min) : ""}
               .max=${opt.max !== undefined ? String(opt.max) : ""}
+              .step=${opt.step !== undefined ? String(opt.step) : "1"}
               @input=${(e: Event) => {
                 const val = (e.target as HTMLInputElement).value;
                 this._updateWidgetOption(
@@ -1518,6 +1519,7 @@ export class GeekMagicPanel extends LitElement {
                       type="number"
                       label="Value"
                       .value=${String(item.value)}
+                      .step=${"any"}
                       @input=${(e: Event) => {
                         const newItems = [...items];
                         newItems[idx] = {
@@ -1663,14 +1665,43 @@ export class GeekMagicPanel extends LitElement {
                         })}
                     ></ha-textfield>
                     <ha-textfield
+                      label="Label Template"
+                      .value=${item.label_template || ""}
+                      .placeholder=${"{{ states('sensor.item_name') }}"}
+                      @input=${(e: Event) =>
+                        this._updateArrayItem(slot, key, progressItems, idx, {
+                          label_template: (e.target as HTMLInputElement).value,
+                        })}
+                    ></ha-textfield>
+                    <ha-textfield
                       type="number"
                       label="Target"
                       .value=${item.target !== undefined ? String(item.target) : "100"}
+                      .step=${"any"}
                       @input=${(e: Event) =>
                         this._updateArrayItem(slot, key, progressItems, idx, {
                           target: parseFloat((e.target as HTMLInputElement).value) || 100,
                         })}
                     ></ha-textfield>
+                    <ha-textfield
+                      label="Target Template"
+                      .value=${item.target_template || ""}
+                      .placeholder=${"{{ states('number.daily_goal') }}"}
+                      @input=${(e: Event) =>
+                        this._updateArrayItem(slot, key, progressItems, idx, {
+                          target_template: (e.target as HTMLInputElement).value,
+                        })}
+                    ></ha-textfield>
+                    <ha-selector
+                      .hass=${this.hass}
+                      .selector=${{ entity: {} }}
+                      .value=${item.target_entity || ""}
+                      .label=${"Target Entity"}
+                      @value-changed=${(e: CustomEvent) =>
+                        this._updateArrayItem(slot, key, progressItems, idx, {
+                          target_entity: e.detail.value,
+                        })}
+                    ></ha-selector>
                     <ha-icon-picker
                       .hass=${this.hass}
                       label="Icon"

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ..const import COLOR_CYAN, COLOR_DARK_GRAY
 from ..render_context import SizeCategory, get_size_category
@@ -20,21 +20,57 @@ from .components import (
     Spacer,
     Text,
 )
-from .helpers import format_number
 
 if TYPE_CHECKING:
     from ..render_context import RenderContext
     from .state import EntityState, WidgetState
 
 
+def _parse_float(value: object) -> float | None:
+    """Parse a float value, returning None on invalid input."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        return None
+
+
+def _coerce_float(value: object, default: float) -> float:
+    """Coerce a value to float with fallback."""
+    parsed = _parse_float(value)
+    if parsed is None:
+        return default
+    return parsed
+
+
+def _coerce_precision(value: object, default: int) -> int:
+    """Coerce precision to an integer in [0, 6]."""
+    try:
+        precision = int(value)
+    except (ValueError, TypeError):
+        precision = default
+    return max(0, min(6, precision))
+
+
+def _normalize_entity_id(value: object) -> str | None:
+    """Normalize optional entity ID values."""
+    if isinstance(value, str) and value:
+        return value
+    return None
+
+
+def _format_fixed(value: float, precision: int) -> str:
+    """Format a numeric value with fixed decimal places."""
+    return f"{value:.{precision}f}"
+
+
 def _extract_numeric(entity: EntityState | None) -> float:
     """Extract numeric value from entity state."""
     if entity is None:
         return 0.0
-    try:
-        return float(entity.state)
-    except (ValueError, TypeError):
+    parsed = _parse_float(entity.state)
+    if parsed is None:
         return 0.0
+    return parsed
 
 
 @dataclass
@@ -49,6 +85,7 @@ class ProgressDisplay(Component):
     icon: str | None = None
     show_target: bool = True
     bar_height_style: str = "normal"
+    precision: int = 1
 
     BAR_HEIGHT_MULTIPLIERS: ClassVar[dict[str, float]] = {
         "thin": 0.10,
@@ -65,10 +102,9 @@ class ProgressDisplay(Component):
         bar_height_mult = self.BAR_HEIGHT_MULTIPLIERS.get(self.bar_height_style, 0.17)
         bar_height = max(4, int(height * bar_height_mult))
 
-        # Format numbers with abbreviations for large values
-        display_value = format_number(self.value)
-        target = self.target or 100
-        display_target = format_number(target)
+        display_value = _format_fixed(self.value, self.precision)
+        target = self.target
+        display_target = _format_fixed(target, self.precision)
         percent = min(100, (self.value / target) * 100) if target > 0 else 0
 
         value_text = f"{display_value}/{display_target}" if self.show_target else display_value
@@ -225,16 +261,44 @@ class ProgressWidget(Widget):
     def __init__(self, config: WidgetConfig) -> None:
         """Initialize the progress widget."""
         super().__init__(config)
-        self.target = config.options.get("target", 100)
+        self.target = _coerce_float(config.options.get("target", 100), 100.0)
+        self.target_entity = _normalize_entity_id(config.options.get("target_entity"))
+        self.precision = _coerce_precision(config.options.get("precision", 1), default=1)
         self.unit = config.options.get("unit", "")
         self.show_target = config.options.get("show_target", True)
         self.icon = config.options.get("icon")
         self.bar_height_style = config.options.get("bar_height", "normal")
 
+    def get_entities(self) -> list[str]:
+        """Return list of entity IDs this widget depends on."""
+        entities = super().get_entities()
+        if self.target_entity and self.target_entity not in entities:
+            entities.append(self.target_entity)
+        return entities
+
+    def _resolve_target(self, state: WidgetState) -> float:
+        """Resolve target from template/entity/static options."""
+        resolved_target = _parse_float(state.get_resolved_option("target"))
+        if resolved_target is not None:
+            return resolved_target
+
+        if not self.target_entity:
+            return self.target
+
+        target_entity = state.get_entity(self.target_entity)
+        if target_entity is None:
+            return self.target
+
+        parsed = _parse_float(target_entity.state)
+        if parsed is None:
+            return self.target
+        return parsed
+
     def render(self, ctx: RenderContext, state: WidgetState) -> Component:
         """Render the progress widget."""
         entity = state.entity
         value = _extract_numeric(entity)
+        target = self._resolve_target(state)
 
         unit = self.unit
         if not unit and entity:
@@ -247,13 +311,14 @@ class ProgressWidget(Widget):
 
         return ProgressDisplay(
             value=value,
-            target=self.target,
+            target=target,
             label=label,
             unit=unit,
             color=self.config.color or ctx.theme.get_accent_color(self.config.slot),
             icon=self.icon,
             show_target=self.show_target,
             bar_height_style=self.bar_height_style,
+            precision=self.precision,
         )
 
 
@@ -263,6 +328,7 @@ class MultiProgressDisplay(Component):
 
     items: list[dict] = field(default_factory=list)
     title: str | None = None
+    precision: int = 0
 
     def measure(self, ctx: RenderContext, max_width: int, max_height: int) -> tuple[int, int]:
         return (max_width, max_height)
@@ -306,9 +372,10 @@ class MultiProgressDisplay(Component):
             color = item.get("color", ctx.theme.get_accent_color(i))
             icon = item.get("icon")
             unit = item.get("unit", "")
+            precision = _coerce_precision(item.get("precision", self.precision), self.precision)
 
             percent = min(100, (value / target) * 100) if target > 0 else 0
-            value_text = f"{value:.0f}/{target:.0f}"
+            value_text = f"{_format_fixed(value, precision)}/{_format_fixed(target, precision)}"
             if unit:
                 value_text += f" {unit}"
 
@@ -362,23 +429,88 @@ class MultiProgressWidget(Widget):
         super().__init__(config)
         self.items = config.options.get("items", [])
         self.title = config.options.get("title")
+        self.precision = _coerce_precision(config.options.get("precision", 0), default=0)
 
     def get_entities(self) -> list[str]:
         """Return list of entity IDs."""
-        return [item.get("entity_id") for item in self.items if item.get("entity_id")]
+        entities: list[str] = []
+        for item in self.items:
+            entity_id = _normalize_entity_id(item.get("entity_id"))
+            if entity_id and entity_id not in entities:
+                entities.append(entity_id)
+            target_entity = _normalize_entity_id(item.get("target_entity"))
+            if target_entity and target_entity not in entities:
+                entities.append(target_entity)
+        return entities
+
+    def _resolve_item_target(
+        self,
+        state: WidgetState,
+        target_entity_id: str | None,
+        fallback: float,
+        template_value: object | None = None,
+    ) -> float:
+        """Resolve item target from template/entity/static options."""
+        parsed_template = _parse_float(template_value)
+        if parsed_template is not None:
+            return parsed_template
+
+        if not target_entity_id:
+            return fallback
+        target_entity = state.get_entity(target_entity_id)
+        if target_entity is None:
+            return fallback
+        parsed = _parse_float(target_entity.state)
+        if parsed is None:
+            return fallback
+        return parsed
+
+    def _get_resolved_item_values(self, state: WidgetState, index: int) -> dict[str, Any]:
+        """Get resolved template values for a multi-progress item by index."""
+        resolved_items = state.get_resolved_option("items")
+        if not isinstance(resolved_items, list):
+            return {}
+        if index < 0 or index >= len(resolved_items):
+            return {}
+        resolved_item = resolved_items[index]
+        if not isinstance(resolved_item, dict):
+            return {}
+        return resolved_item
 
     def render(self, ctx: RenderContext, state: WidgetState) -> Component:
         """Render the multi-progress widget."""
+        resolved_title_present = "title" in state.resolved_options
+        resolved_title = state.get_resolved_option("title")
+        display_title = (
+            ("" if resolved_title is None else str(resolved_title))
+            if resolved_title_present
+            else self.title
+        )
+
         display_items = []
         for i, item in enumerate(self.items):
-            entity_id = item.get("entity_id")
+            resolved_item = self._get_resolved_item_values(state, i)
+
+            entity_id = _normalize_entity_id(item.get("entity_id"))
             entity = state.get_entity(entity_id) if entity_id else None
             value = _extract_numeric(entity)
+            static_target = _coerce_float(item.get("target", 100), 100.0)
+            target_entity = _normalize_entity_id(item.get("target_entity"))
+            target = self._resolve_item_target(
+                state,
+                target_entity,
+                static_target,
+                resolved_item.get("target"),
+            )
 
-            label = item.get("label", "")
-            if entity and not label:
-                label = entity.friendly_name
-            label = label or entity_id or "Item"
+            if "label" in resolved_item:
+                resolved_label = resolved_item.get("label")
+                label = "" if resolved_label is None else str(resolved_label)
+            else:
+                label = item.get("label", "")
+                if entity and not label:
+                    label = entity.friendly_name
+                label = label or entity_id or "Item"
 
             unit = item.get("unit", "")
             if entity and not unit:
@@ -388,11 +520,16 @@ class MultiProgressWidget(Widget):
                 {
                     "label": label,
                     "value": value,
-                    "target": item.get("target", 100),
+                    "target": target,
                     "color": item.get("color", ctx.theme.get_accent_color(i)),
                     "icon": item.get("icon"),
                     "unit": unit,
+                    "precision": self.precision,
                 }
             )
 
-        return MultiProgressDisplay(items=display_items, title=self.title)
+        return MultiProgressDisplay(
+            items=display_items,
+            title=display_title,
+            precision=self.precision,
+        )

@@ -73,6 +73,9 @@ class WidgetState:
     # Additional entities (for multi-entity widgets like weather)
     entities: dict[str, EntityState] = field(default_factory=dict)
 
+    # Pre-resolved dynamic option values (for template-driven widget options)
+    resolved_options: dict[str, Any] = field(default_factory=dict)
+
     # Pre-fetched data
     history: list[float] = field(default_factory=list)
     image: Image.Image | None = field(default=None)
@@ -90,3 +93,7 @@ class WidgetState:
     def has_history(self) -> bool:
         """Check if history data is available."""
         return len(self.history) >= 2
+
+    def get_resolved_option(self, key: str, default: Any = None) -> Any:
+        """Get a pre-resolved dynamic option value."""
+        return self.resolved_options.get(key, default)

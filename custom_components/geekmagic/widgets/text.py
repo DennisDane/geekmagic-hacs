@@ -149,9 +149,15 @@ class TextWidget(Widget):
     def _get_text(self, state: WidgetState) -> str:
         """Get the text to display.
 
-        If entity_id is set (from options or widget config), returns the entity state.
-        Otherwise returns the configured text.
+        Precedence:
+        1) Resolved template value
+        2) Entity state
+        3) Static text option
         """
+        if "text" in state.resolved_options:
+            resolved = state.get_resolved_option("text")
+            return "" if resolved is None else str(resolved)
+
         # Check for entity in state (from config.entity_id or dynamic_entity_id)
         if state.entity:
             return state.entity.state
@@ -162,7 +168,7 @@ class TextWidget(Widget):
             if entity:
                 return entity.state
 
-        return self.text
+        return str(self.text)
 
     def get_entities(self) -> list[str]:
         """Return entity IDs this widget depends on."""

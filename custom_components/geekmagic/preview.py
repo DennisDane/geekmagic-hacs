@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .const import (
     CONF_LAYOUT,
+    CONF_SCREEN_THEME,
     CONF_WIDGETS,
     LAYOUT_GRID_2X2,
     LAYOUT_GRID_2X3,
@@ -24,6 +25,7 @@ from .const import (
     LAYOUT_SPLIT_H_1_2,
     LAYOUT_SPLIT_H_2_1,
     LAYOUT_SPLIT_V,
+    THEME_CLASSIC,
     LAYOUT_THREE_COLUMN,
     LAYOUT_THREE_ROW,
 )
@@ -40,6 +42,7 @@ from .layouts.split import (
     ThreeRowLayout,
 )
 from .renderer import Renderer
+from .template_utils import resolve_widget_template_options
 from .widgets.attribute_list import AttributeListWidget
 from .widgets.base import WidgetConfig
 from .widgets.chart import ChartWidget
@@ -52,9 +55,12 @@ from .widgets.state import EntityState, WidgetState
 from .widgets.status import StatusListWidget, StatusWidget
 from .widgets.text import TextWidget
 from .widgets.weather import WeatherWidget
+from .widgets.theme import get_theme
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
+
+    from .widgets.base import Widget
 
 LAYOUT_CLASSES = {
     LAYOUT_GRID_2X2: Grid2x2,
@@ -145,36 +151,34 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
     """
     widget_type = widget_config.get("type", "")
     entity_id = widget_config.get("entity_id")
-
-    if not entity_id:
-        return
+    options = widget_config.get("options", {})
 
     # Set appropriate mock state based on widget type
-    if widget_type == "entity":
+    if widget_type == "entity" and entity_id:
         mock.states.set(
             entity_id,
             "42",
             {"unit_of_measurement": "", "friendly_name": widget_config.get("label", "Entity")},
         )
-    elif widget_type == "gauge":
+    elif widget_type == "gauge" and entity_id:
         mock.states.set(
             entity_id,
             "65",
             {"unit_of_measurement": "%", "friendly_name": widget_config.get("label", "Gauge")},
         )
-    elif widget_type == "progress":
+    elif widget_type == "progress" and entity_id:
         mock.states.set(
             entity_id,
             "75",
             {"unit_of_measurement": "", "friendly_name": widget_config.get("label", "Progress")},
         )
-    elif widget_type == "status":
+    elif widget_type == "status" and entity_id:
         mock.states.set(
             entity_id,
             "on",
             {"friendly_name": widget_config.get("label", "Status")},
         )
-    elif widget_type == "media":
+    elif widget_type == "media" and entity_id:
         mock.states.set(
             entity_id,
             "playing",
@@ -186,13 +190,13 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
                 "media_duration": 300,
             },
         )
-    elif widget_type == "chart":
+    elif widget_type == "chart" and entity_id:
         mock.states.set(
             entity_id,
             "23",
             {"unit_of_measurement": "°C", "friendly_name": widget_config.get("label", "Chart")},
         )
-    elif widget_type == "weather":
+    elif widget_type == "weather" and entity_id:
         mock.states.set(
             entity_id,
             "sunny",
@@ -207,13 +211,25 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
     elif widget_type == "text" and entity_id:
         mock.states.set(
             entity_id,
-            widget_config.get("options", {}).get("text", "Sample"),
+            options.get("text", "Sample"),
             {"friendly_name": widget_config.get("label", "Text")},
         )
 
-    # Handle list-based widgets
-    options = widget_config.get("options", {})
+    # Widget-specific dynamic entity dependencies
+    if widget_type == "gauge":
+        min_entity = options.get("min_entity")
+        if min_entity:
+            mock.states.set(str(min_entity), "0", {"friendly_name": "Gauge Min"})
+        max_entity = options.get("max_entity")
+        if max_entity:
+            mock.states.set(str(max_entity), "100", {"friendly_name": "Gauge Max"})
 
+    elif widget_type == "progress":
+        target_entity = options.get("target_entity")
+        if target_entity:
+            mock.states.set(str(target_entity), "100", {"friendly_name": "Progress Target"})
+
+    # Handle list-based widgets
     if widget_type == "multi_progress":
         items = options.get("items", [])
         for item in items:
@@ -223,6 +239,13 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
                     item_entity,
                     "50",
                     {"unit_of_measurement": "", "friendly_name": item.get("label", "Item")},
+                )
+            target_entity = item.get("target_entity")
+            if target_entity:
+                mock.states.set(
+                    str(target_entity),
+                    str(item.get("target", 100)),
+                    {"friendly_name": f"{item.get('label', 'Item')} Target"},
                 )
 
     elif widget_type == "status_list":
@@ -238,12 +261,15 @@ def _set_mock_state_for_widget(mock: MockHass, widget_config: dict[str, Any]) ->
 
 def _build_widget_state_for_preview(
     widget_config: dict[str, Any],
+    widget: Widget,
     mock: MockHass,
+    resolved_options: dict[str, Any] | None = None,
 ) -> WidgetState:
     """Build WidgetState for a widget in preview mode.
 
     Args:
         widget_config: Widget configuration dictionary
+        widget: Widget instance
         mock: MockHass instance with mock states
 
     Returns:
@@ -251,8 +277,6 @@ def _build_widget_state_for_preview(
     """
     widget_type = widget_config.get("type", "")
     entity_id = widget_config.get("entity_id")
-    options = widget_config.get("options", {})
-
     # Build primary entity state
     entity: EntityState | None = None
     if entity_id:
@@ -264,34 +288,18 @@ def _build_widget_state_for_preview(
                 attributes=mock_state.attributes,
             )
 
-    # Build additional entities for multi-entity widgets
+    # Build additional entities for widget dependencies
     entities: dict[str, EntityState] = {}
-
-    if widget_type == "multi_progress":
-        items = options.get("items", [])
-        for item in items:
-            item_entity_id = item.get("entity_id")
-            if item_entity_id:
-                mock_state = mock.states.get(item_entity_id)
-                if mock_state:
-                    entities[item_entity_id] = EntityState(
-                        entity_id=mock_state.entity_id,
-                        state=mock_state.state,
-                        attributes=mock_state.attributes,
-                    )
-
-    elif widget_type == "status_list":
-        entity_entries = options.get("entities", [])
-        for entry in entity_entries:
-            ent_id = entry[0] if isinstance(entry, list | tuple) else entry
-            if ent_id:
-                mock_state = mock.states.get(ent_id)
-                if mock_state:
-                    entities[ent_id] = EntityState(
-                        entity_id=mock_state.entity_id,
-                        state=mock_state.state,
-                        attributes=mock_state.attributes,
-                    )
+    for dependent_id in widget.get_entities():
+        if not dependent_id or dependent_id == entity_id:
+            continue
+        mock_state = mock.states.get(dependent_id)
+        if mock_state:
+            entities[dependent_id] = EntityState(
+                entity_id=mock_state.entity_id,
+                state=mock_state.state,
+                attributes=mock_state.attributes,
+            )
 
     # Build mock chart history for chart widgets
     history: list[float] = []
@@ -338,6 +346,7 @@ def _build_widget_state_for_preview(
     return WidgetState(
         entity=entity,
         entities=entities,
+        resolved_options=resolved_options or {},
         history=history,
         forecast=forecast,
         image=None,
@@ -349,6 +358,7 @@ def render_preview(
     layout_type: str,
     widgets_config: list[dict[str, Any]],
     hass: HomeAssistant | None = None,
+    theme_name: str = THEME_CLASSIC,
 ) -> bytes:
     """Render a preview image for the given configuration.
 
@@ -356,6 +366,7 @@ def render_preview(
         layout_type: Layout type string (grid_2x2, grid_2x3, hero, split)
         widgets_config: List of widget configuration dictionaries
         hass: Optional Home Assistant instance (uses mock if None)
+        theme_name: Theme name for preview background/card styling
 
     Returns:
         PNG image bytes
@@ -369,6 +380,7 @@ def render_preview(
     renderer = Renderer()
     layout_class = LAYOUT_CLASSES.get(layout_type, Grid2x2)
     layout = layout_class()
+    layout.theme = get_theme(theme_name)
 
     # Build widget_states dict for all slots
     widget_states: dict[int, WidgetState] = {}
@@ -405,13 +417,44 @@ def render_preview(
         )
 
         widget = widget_class(config)
+
+        # Ensure all declared dependencies have mock state in preview mode.
+        for dependent_id in widget.get_entities():
+            if not dependent_id or mock.states.get(dependent_id):
+                continue
+            mock.states.set(
+                dependent_id,
+                "0",
+                {
+                    "friendly_name": dependent_id,
+                    "unit_of_measurement": "",
+                    "min": 0,
+                    "max": 100,
+                },
+            )
+
         layout.set_widget(slot, widget)
 
+        template_values = (
+            resolve_widget_template_options(
+                hass,
+                widget_type,
+                cast("dict[str, Any]", widget_options),
+            )
+            if hass is not None
+            else {}
+        )
+
         # Build widget state for this slot
-        widget_states[slot] = _build_widget_state_for_preview(widget_config, mock)
+        widget_states[slot] = _build_widget_state_for_preview(
+            widget_config,
+            widget,
+            mock,
+            resolved_options=template_values,
+        )
 
     # Render to image
-    img, draw = renderer.create_canvas()
+    img, draw = renderer.create_canvas(background=layout.theme.background)
     layout.render(renderer, draw, widget_states)
 
     return renderer.to_png(img)
@@ -431,5 +474,6 @@ def render_screen_preview(
     """
     layout_type = screen_config.get(CONF_LAYOUT, LAYOUT_GRID_2X2)
     widgets_config = screen_config.get(CONF_WIDGETS, [])
+    theme_name = screen_config.get(CONF_SCREEN_THEME, THEME_CLASSIC)
 
-    return render_preview(layout_type, widgets_config, hass)
+    return render_preview(layout_type, widgets_config, hass, theme_name)

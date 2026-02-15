@@ -75,6 +75,7 @@ from .layouts.split import (
     ThreeRowLayout,
 )
 from .renderer import Renderer
+from .template_utils import resolve_widget_template_options
 from .widgets.attribute_list import AttributeListWidget
 from .widgets.base import WidgetConfig
 from .widgets.camera import CameraWidget
@@ -690,6 +691,11 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             states[slot.index] = WidgetState(
                 entity=primary_entity,
                 entities=additional,
+                resolved_options=resolve_widget_template_options(
+                    self.hass,
+                    widget.config.widget_type,
+                    widget.config.options,
+                ),
                 history=history,
                 image=image,
                 forecast=forecast,
@@ -704,9 +710,6 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
         Returns:
             Tuple of (jpeg_data, png_data)
         """
-        # Create canvas
-        img, draw = self.renderer.create_canvas()
-
         # Render current screen's layout
         if self._layouts and 0 <= self._current_screen < len(self._layouts):
             layout = self._layouts[self._current_screen]
@@ -715,6 +718,10 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             if time.time() < self._notification_expiry and self._notification_data:
                 _LOGGER.debug("Rendering active notification")
                 layout = self._create_notification_layout(self._notification_data)
+
+            # Create canvas using the active layout theme background so gaps
+            # between cards match the selected theme.
+            img, draw = self.renderer.create_canvas(background=layout.theme.background)
 
             _LOGGER.debug(
                 "Rendering layout %s with %d widgets",
@@ -729,6 +736,7 @@ class GeekMagicCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("No screens configured, rendering welcome screen")
             # Recreate welcome layout each time to get fresh HA stats
             welcome_layout = self._create_welcome_layout()
+            img, draw = self.renderer.create_canvas(background=welcome_layout.theme.background)
             widget_states = self._build_widget_states(welcome_layout)
             welcome_layout.render(self.renderer, draw, widget_states)
 
